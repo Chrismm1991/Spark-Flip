@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SPARK FLIP — a deduction puzzle</title>
+<style>
+/* ============================================================
+   SPARK FLIP — original code & art, inspired by classic
+   handheld flip-and-deduce puzzle games.
+   ============================================================ */
+:root{
+  --cell: clamp(44px, min(13.5vw, 9.2vh), 78px);
+  --clue: calc(var(--cell) * 0.92);
+  --gap: clamp(3px, 0.8vw, 6px);
+  --bg0:#0e2a24;
+  --bg1:#14382f;
+  --felt:#1d4a3c;
+  --line:#0a201a;
+  --tile:#e8574a;
+  --tile-hi:#f4796b;
+  --tile-lo:#b23a30;
+  --card-face:#f3e7c9;
+  --card-face-lo:#d9c89e;
+  --gold:#ffd44d;
+  --ink:#20221f;
+  --text:#eef3e6;
+  --muted:#9db8a8;
+  --c0:#e8874a; --c1:#5cb85c; --c2:#e8c84a; --c3:#5c9ee8; --c4:#b06ce0;
+  --font: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  min-height:100svh;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #1c5445 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.045) 3px 4px),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+  color:var(--text);
+  font-family:var(--font);
+  display:flex; flex-direction:column; align-items:center;
+  padding: clamp(8px,2vh,20px) 10px 28px;
+  user-select:none;
+}
+#app{width:100%; max-width:640px; display:flex; flex-direction:column; align-items:center; gap:clamp(8px,1.4vh,14px);}
+
+/* ---------- header ---------- */
+#topbar{width:100%; display:flex; flex-direction:column; gap:8px; align-items:center;}
+.brand{
+  display:flex; align-items:center; gap:10px;
+  font-weight:800; letter-spacing:3px; font-size:clamp(18px,4.5vw,26px);
+  color:var(--gold);
+  text-shadow: 0 2px 0 #7a5a00, 0 4px 0 rgba(0,0,0,.35);
+}
+.brand svg{filter: drop-shadow(0 2px 0 rgba(0,0,0,.4));}
+.stats{display:flex; gap:8px; width:100%; justify-content:center; flex-wrap:wrap;}
+.stat{
+  background:#0b241d; border:2px solid #2c6a56; border-radius:8px;
+  padding:6px 12px; min-width:110px; text-align:center;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.06), 0 3px 0 rgba(0,0,0,.35);
+}
+.stat .label{display:block; font-size:10px; letter-spacing:2px; color:var(--muted); font-weight:700;}
+.stat .val{display:block; font-size:clamp(16px,4vw,22px); font-weight:800; color:#fff; line-height:1.25;}
+.stat.level .val{color:var(--gold);}
+.stat.round .val{color:#8be08b;}
+.stat.round .val.pulse{animation:pulse .45s ease;}
+@keyframes pulse{
+  0%{transform:scale(1); color:#8be08b;}
+  40%{transform:scale(1.45); color:var(--gold); text-shadow:0 0 12px rgba(255,212,77,.9);}
+  100%{transform:scale(1);}
+}
+
+/* ---------- toolbar ---------- */
+#toolbar{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; width:100%;}
+.btn{
+  font-family:var(--font); font-weight:800; letter-spacing:1px;
+  font-size:clamp(10px,2.6vw,12px);
+  color:var(--ink); background:linear-gradient(180deg,#ffe89a,#f3c93f);
+  border:2px solid #8a6a12; border-radius:8px;
+  padding:9px 12px; cursor:pointer;
+  box-shadow: 0 3px 0 #8a6a12, inset 0 2px 0 rgba(255,255,255,.55);
+  transition: transform .06s ease, box-shadow .06s ease, filter .15s;
+  text-transform:uppercase;
+}
+.btn:hover{filter:brightness(1.05);}
+.btn:active{transform:translateY(3px); box-shadow:0 0 0 #8a6a12, inset 0 2px 0 rgba(255,255,255,.4);}
+.btn:disabled{filter:grayscale(.8) brightness(.75); cursor:not-allowed; opacity:.7;}
+.btn.blue{background:linear-gradient(180deg,#9ed4ff,#4f9fe0); border-color:#1c5a8a; box-shadow:0 3px 0 #1c5a8a, inset 0 2px 0 rgba(255,255,255,.5); color:#0b2540;}
+.btn.blue:active{box-shadow:0 0 0 #1c5a8a;}
+.btn.green{background:linear-gradient(180deg,#a8e8a0,#5fbf58); border-color:#2c6e28; box-shadow:0 3px 0 #2c6e28, inset 0 2px 0 rgba(255,255,255,.5); color:#0c2a0a;}
+.btn.green:active{box-shadow:0 0 0 #2c6e28;}
+.btn.gray{background:linear-gradient(180deg,#d8dfd6,#a9b3a7); border-color:#5c665b; box-shadow:0 3px 0 #5c665b, inset 0 2px 0 rgba(255,255,255,.5); color:#22281f;}
+.btn.gray:active{box-shadow:0 0 0 #5c665b;}
+.btn.memo-on{background:linear-gradient(180deg,#ffb3e2,#e060ad); border-color:#8a2864; box-shadow:0 3px 0 #8a2864, inset 0 2px 0 rgba(255,255,255,.5); color:#3d0a2a;}
+.btn.memo-on:active{box-shadow:0 0 0 #8a2864;}
+
+/* ---------- memo palette ---------- */
+#memoPalette{
+  display:flex; gap:8px; align-items:center; justify-content:center;
+  background:#0b241d; border:2px solid #b45090; border-radius:10px;
+  padding:6px 12px;
+  box-shadow:0 3px 0 rgba(0,0,0,.35);
+}
+#memoPalette[hidden]{display:none;}
+#memoPalette .plabel{font-size:10px; letter-spacing:1px; color:#f0a4d0; font-weight:800;}
+.mkbtn{
+  width:36px; height:36px; border-radius:8px; border:2px solid #666;
+  font-family:var(--font); font-weight:800; font-size:15px; cursor:pointer;
+  background:#22352e; color:#cfe3d6; display:flex; align-items:center; justify-content:center;
+  transition: all .1s;
+}
+.mkbtn svg{width:20px;height:20px;}
+.mkbtn.active{background:var(--gold); color:var(--ink); border-color:#8a6a12; box-shadow:0 0 10px rgba(255,212,77,.6); transform:scale(1.08);}
+
+/* ---------- board ---------- */
+#boardWrap{position:relative;}
+#board{
+  display:grid;
+  grid-template-columns: repeat(5, var(--cell)) var(--clue);
+  grid-template-rows: repeat(5, var(--cell)) var(--clue);
+  gap:var(--gap);
+  background:var(--felt);
+  border:4px solid var(--line);
+  border-radius:14px;
+  padding: clamp(6px,1.5vw,12px);
+  box-shadow: 0 8px 0 rgba(0,0,0,.35), inset 0 0 0 2px #2f6c58, inset 0 0 40px rgba(0,0,0,.25);
+}
+#board.shake{animation:shake .5s ease;}
+@keyframes shake{
+  0%,100%{transform:translate(0,0);}
+  15%{transform:translate(-7px,2px) rotate(-1deg);}
+  30%{transform:translate(6px,-3px) rotate(1deg);}
+  45%{transform:translate(-5px,3px);}
+  60%{transform:translate(5px,-2px);}
+  75%{transform:translate(-3px,1px);}
+  90%{transform:translate(2px,-1px);}
+}
+#board.victory{animation:victoryGlow 1.2s ease;}
+@keyframes victoryGlow{
+  0%,100%{box-shadow:0 8px 0 rgba(0,0,0,.35), inset 0 0 0 2px #2f6c58;}
+  50%{box-shadow:0 8px 0 rgba(0,0,0,.35), inset 0 0 0 2px var(--gold), 0 0 40px rgba(255,212,77,.75);}
+}
+
+/* ---------- tiles ---------- */
+.tile{
+  position:relative; width:var(--cell); height:var(--cell);
+  background:transparent; border:none; padding:0; cursor:pointer;
+  perspective:600px; outline:none;
+  font-family:var(--font);
+}
+.tile .card{
+  position:absolute; inset:0;
+  transform-style:preserve-3d;
+  transition: transform .38s cubic-bezier(.3,1.4,.5,1);
+}
+.tile.revealed .card{transform:rotateY(180deg);}
+.face{
+  position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+}
+.face.front{
+  background:linear-gradient(160deg, var(--tile-hi) 0%, var(--tile) 55%, var(--tile-lo) 100%);
+  border:2px solid #7c221b;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.28);
+}
+.face.front svg.glyph{width:52%; height:52%; opacity:.9;}
+.face.back{
+  transform:rotateY(180deg);
+  background:linear-gradient(170deg, #fbf3dd 0%, var(--card-face) 55%, var(--card-face-lo) 100%);
+  border:2px solid #9a8a5e;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.6), inset 0 -4px 0 rgba(0,0,0,.15);
+  color:var(--ink);
+  font-weight:800;
+  font-size: calc(var(--cell) * 0.52);
+  text-shadow: 0 2px 0 rgba(0,0,0,.15);
+}
+.tile.revealed .face.back > *{animation:popIn .3s .22s cubic-bezier(.3,1.8,.5,1) both;}
+@keyframes popIn{0%{transform:scale(.2); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+.face.back.v2{background:linear-gradient(170deg,#ffefb0,#ffd44d 60%,#e0a92e); border-color:#8a6a12; color:#5c3d00;}
+.face.back.v3{background:linear-gradient(170deg,#ffe2b0,#ffab4d 60%,#e07a2e); border-color:#8a4212; color:#5c2400;}
+.face.back.v2, .face.back.v3{box-shadow: inset 0 3px 0 rgba(255,255,255,.6), inset 0 -4px 0 rgba(0,0,0,.15), 0 0 12px rgba(255,200,80,.35);}
+.face.back.orb{background:linear-gradient(170deg,#4a4a52,#33333a 60%,#222228); border-color:#111;}
+.face.back.orb svg{width:76%; height:76%;}
+.tile.dimmed .face.back{filter:brightness(.62) saturate(.7);}
+.tile.dimmed .face.back.orb{filter:brightness(.55);}
+.tile.hitOrb .face.back{animation:orbFlash .8s ease .4s;}
+@keyframes orbFlash{
+  0%,100%{filter:none;}
+  20%{filter:brightness(3) saturate(0); background:#fff;}
+  40%{filter:brightness(.8) sepia(1) hue-rotate(-40deg) saturate(4);}
+  60%{filter:brightness(2.4);}
+}
+.tile.winGlow .face.back{animation:winGlow 1s ease 2;}
+@keyframes winGlow{
+  0%,100%{box-shadow:inset 0 3px 0 rgba(255,255,255,.6), inset 0 -4px 0 rgba(0,0,0,.15);}
+  50%{box-shadow:0 0 18px 4px rgba(255,212,77,.95), inset 0 0 12px rgba(255,255,255,.8);}
+}
+.tile:not(.revealed):hover .face.front{filter:brightness(1.1);}
+.tile.sel::after{
+  content:""; position:absolute; inset:-4px; border-radius:12px;
+  border:3px solid #fff; pointer-events:none;
+  animation:selBlink 1s steps(2) infinite;
+  box-shadow:0 0 10px rgba(255,255,255,.55);
+}
+@keyframes selBlink{0%{border-color:#ffffff;} 50%{border-color:var(--gold);} 100%{border-color:#ffffff;}}
+.tile.hintFlash::after{
+  content:""; position:absolute; inset:-4px; border-radius:12px;
+  border:3px solid #58ffb0; pointer-events:none;
+  animation:hintPing 1.9s ease;
+  box-shadow:0 0 16px rgba(88,255,176,.8);
+}
+@keyframes hintPing{0%{opacity:0; transform:scale(1.5);} 20%{opacity:1; transform:scale(1);} 80%{opacity:1;} 100%{opacity:0;}}
+.tile.dangerFlash::after{
+  content:""; position:absolute; inset:-4px; border-radius:12px;
+  border:3px solid #ff5858; pointer-events:none;
+  animation:hintPing 1.9s ease;
+  box-shadow:0 0 16px rgba(255,88,88,.8);
+}
+
+/* memo marks */
+.memos{position:absolute; inset:3px; pointer-events:none;}
+.memos .m{
+  position:absolute; width:38%; height:38%;
+  display:none; align-items:center; justify-content:center;
+  font-size: calc(var(--cell) * 0.22); font-weight:800;
+  color:#fff; text-shadow:0 1px 0 rgba(0,0,0,.6);
+  background:rgba(0,0,0,.38); border-radius:5px; border:1px solid rgba(255,255,255,.5);
+}
+.memos .m.on{display:flex;}
+.memos .m svg{width:70%; height:70%;}
+.m.mv{top:0; left:0;}
+.m.m1{top:0; right:0;}
+.m.m2{bottom:0; left:0;}
+.m.m3{bottom:0; right:0;}
+
+/* ---------- clue cells ---------- */
+.clue{
+  width:100%; height:100%;
+  border-radius:9px; border:2px solid rgba(0,0,0,.5);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px;
+  color:#fff;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.28), inset 0 -3px 0 rgba(0,0,0,.25);
+}
+.clue .pts{font-size:calc(var(--cell) * 0.26); font-weight:800; text-shadow:0 1px 0 rgba(0,0,0,.5); line-height:1;}
+.clue .sep{width:78%; height:2px; background:rgba(0,0,0,.35); border-radius:2px;}
+.clue .vb{display:flex; align-items:center; gap:3px; font-size:calc(var(--cell) * 0.24); font-weight:800; text-shadow:0 1px 0 rgba(0,0,0,.5); line-height:1;}
+.clue .vb svg{width:calc(var(--cell) * 0.24); height:calc(var(--cell) * 0.24);}
+.clue.k0{background:linear-gradient(180deg,#f09a5e,var(--c0));}
+.clue.k1{background:linear-gradient(180deg,#7ed07e,var(--c1));}
+.clue.k2{background:linear-gradient(180deg,#f0d86e,var(--c2));}
+.clue.k3{background:linear-gradient(180deg,#7eb4f0,var(--c3));}
+.clue.k4{background:linear-gradient(180deg,#c88ef0,var(--c4));}
+.clue.done{filter:saturate(.35) brightness(.75);}
+.corner{
+  display:flex; align-items:center; justify-content:center;
+  border-radius:9px; background:#153a30; border:2px dashed #2f6c58;
+}
+.corner svg{width:55%; height:55%; opacity:.85;}
+
+/* ---------- message bar ---------- */
+#msg{
+  min-height:38px; width:100%; max-width:520px;
+  background:#0b241d; border:2px solid #2c6a56; border-radius:10px;
+  padding:8px 14px; text-align:center;
+  font-size:clamp(11px,3vw,13px); font-weight:700; letter-spacing:.4px;
+  color:#cfe8d8;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.06);
+  display:flex; align-items:center; justify-content:center;
+}
+#msg.flash{animation:msgFlash .4s ease;}
+@keyframes msgFlash{0%{background:#1d5a48;} 100%{background:#0b241d;}}
+
+/* ---------- particles ---------- */
+#fx{position:absolute; inset:0; pointer-events:none; overflow:visible; z-index:5;}
+.spark{
+  position:absolute; width:10px; height:10px; border-radius:2px;
+  animation:fling .8s cubic-bezier(.2,.8,.4,1) forwards;
+}
+@keyframes fling{
+  0%{transform:translate(0,0) rotate(0deg) scale(1); opacity:1;}
+  100%{transform:translate(var(--dx),var(--dy)) rotate(540deg) scale(.2); opacity:0;}
+}
+
+/* ---------- modal ---------- */
+#modal{
+  position:fixed; inset:0; z-index:50;
+  background:rgba(4,14,11,.75);
+  display:flex; align-items:center; justify-content:center;
+  padding:16px;
+  backdrop-filter:blur(2px);
+}
+#modal[hidden]{display:none;}
+.panel{
+  background:linear-gradient(180deg,#1d4a3c,#123227);
+  border:3px solid var(--gold); border-radius:14px;
+  max-width:440px; width:100%;
+  max-height:86svh; overflow-y:auto;
+  padding:20px 22px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.1);
+  animation:panelIn .25s cubic-bezier(.3,1.4,.5,1);
+  text-align:center;
+}
+@keyframes panelIn{0%{transform:scale(.8) translateY(20px); opacity:0;} 100%{transform:scale(1) translateY(0); opacity:1;}}
+.panel h2{
+  margin:0 0 12px; font-size:clamp(17px,5vw,22px); letter-spacing:2px; color:var(--gold);
+  text-shadow:0 2px 0 #7a5a00;
+}
+.panel .body{font-size:12.5px; line-height:1.65; color:#dceadf; text-align:left;}
+.panel .body p{margin:8px 0;}
+.panel .body.center{text-align:center; font-size:14px;}
+.panel .big{font-size:clamp(20px,6vw,28px); font-weight:800; color:var(--gold); margin:10px 0; text-shadow:0 2px 0 #7a5a00;}
+.panel .actions{display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap;}
+.panel .kbd{display:inline-block; background:#0b241d; border:1px solid #3a7a62; border-radius:4px; padding:1px 6px; font-size:11px; margin:0 1px;}
+.panel table{width:100%; border-collapse:collapse; font-size:11.5px; margin:6px 0;}
+.panel td{padding:3px 6px; border-bottom:1px solid rgba(255,255,255,.1);}
+.panel .demo-orb{width:18px;height:18px;vertical-align:-4px;}
+
+footer{margin-top:6px; font-size:10px; color:#5f8272; letter-spacing:1px; text-align:center;}
+@media (max-width:420px){
+  .stat{min-width:96px; padding:5px 8px;}
+  .btn{padding:8px 9px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true">
+        <rect x="6" y="0" width="4" height="1" fill="#ffd44d"/><rect x="5" y="1" width="4" height="1" fill="#ffd44d"/>
+        <rect x="4" y="2" width="4" height="1" fill="#ffd44d"/><rect x="3" y="3" width="4" height="1" fill="#ffd44d"/>
+        <rect x="2" y="4" width="6" height="1" fill="#ffd44d"/><rect x="4" y="5" width="6" height="1" fill="#ffd44d"/>
+        <rect x="4" y="6" width="4" height="1" fill="#ffd44d"/><rect x="3" y="7" width="4" height="1" fill="#ffd44d"/>
+        <rect x="2" y="8" width="4" height="1" fill="#ffd44d"/><rect x="1" y="9" width="4" height="1" fill="#ffd44d"/>
+        <rect x="1" y="10" width="3" height="1" fill="#ffd44d"/><rect x="1" y="11" width="2" height="1" fill="#ffd44d"/>
+      </svg>
+      SPARK FLIP
+    </div>
+    <div class="stats">
+      <div class="stat level"><span class="label">LEVEL</span><span class="val" id="levelVal">1</span></div>
+      <div class="stat total"><span class="label">TOTAL COINS</span><span class="val" id="totalVal">0</span></div>
+      <div class="stat round"><span class="label">THIS ROUND</span><span class="val" id="roundVal">1</span></div>
+    </div>
+  </header>
+
+  <div id="toolbar">
+    <button class="btn blue" id="btnNew">New Game</button>
+    <button class="btn green" id="btnCash" disabled>Cash Out</button>
+    <button class="btn" id="btnMemo">Memo</button>
+    <button class="btn gray" id="btnHint">Hint</button>
+    <button class="btn gray" id="btnHelp">How To Play</button>
+    <button class="btn gray" id="btnSound">Sound: On</button>
+  </div>
+
+  <div id="memoPalette" hidden>
+    <span class="plabel">MARK:</span>
+    <button class="mkbtn" data-mark="0" title="Orb (0)"></button>
+    <button class="mkbtn" data-mark="1" title="1">1</button>
+    <button class="mkbtn" data-mark="2" title="2">2</button>
+    <button class="mkbtn" data-mark="3" title="3">3</button>
+  </div>
+
+  <div id="boardWrap">
+    <div id="board" role="grid" aria-label="Puzzle board"></div>
+    <div id="fx"></div>
+  </div>
+
+  <div id="msg">Flip tiles. Find every 2 and 3. Dodge the Spark Orbs!</div>
+
+  <footer>SPARK FLIP · an original fan-made deduction puzzle · progress auto-saves</footer>
+</div>
+
+<div id="modal" hidden>
+  <div class="panel" role="dialog" aria-modal="true">
+    <h2 id="modalTitle"></h2>
+    <div class="body" id="modalBody"></div>
+    <div class="actions" id="modalActions"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   0. Pixel-art SVG assets (original artwork)
+   ============================================================ */
+const SVG = {};
+// Spark Orb: an original cartoon electric bomb-orb (pixel art)
+SVG.orb = (cls="") => `
+<svg class="${cls}" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-label="Spark Orb">
+  <rect x="7" y="0" width="2" height="1" fill="#3a3a3a"/>
+  <rect x="9" y="0" width="2" height="1" fill="#ffd44d"/>
+  <rect x="10" y="1" width="1" height="1" fill="#ffd44d"/>
+  <rect x="5" y="2" width="6" height="1" fill="#26262b"/>
+  <rect x="4" y="3" width="8" height="1" fill="#3d3d44"/>
+  <rect x="3" y="4" width="10" height="1" fill="#4a4a52"/>
+  <rect x="2" y="5" width="12" height="1" fill="#4a4a52"/>
+  <rect x="2" y="6" width="12" height="1" fill="#3d3d44"/>
+  <rect x="2" y="7" width="12" height="1" fill="#3d3d44"/>
+  <rect x="2" y="8" width="12" height="1" fill="#33333a"/>
+  <rect x="2" y="9" width="12" height="1" fill="#33333a"/>
+  <rect x="3" y="10" width="10" height="1" fill="#2b2b31"/>
+  <rect x="4" y="11" width="8" height="1" fill="#26262b"/>
+  <rect x="5" y="12" width="6" height="1" fill="#1e1e23"/>
+  <rect x="4" y="4" width="2" height="1" fill="#8e8e99"/>
+  <rect x="3" y="5" width="2" height="2" fill="#8e8e99"/>
+  <rect x="8" y="4" width="1" height="1" fill="#ffd44d"/>
+  <rect x="7" y="5" width="1" height="1" fill="#ffd44d"/>
+  <rect x="6" y="6" width="3" height="1" fill="#ffd44d"/>
+  <rect x="8" y="7" width="1" height="1" fill="#ffd44d"/>
+  <rect x="7" y="8" width="1" height="1" fill="#ffd44d"/>
+  <rect x="9" y="6" width="1" height="1" fill="#ffe89a"/>
+</svg>`;
+// small orb for clue cells
+SVG.orbMini = () => `
+<svg viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+  <rect x="2" y="0" width="4" height="1" fill="#26262b"/>
+  <rect x="1" y="1" width="6" height="2" fill="#4a4a52"/>
+  <rect x="1" y="3" width="6" height="2" fill="#33333a"/>
+  <rect x="2" y="5" width="4" height="1" fill="#26262b"/>
+  <rect x="1" y="1" width="2" height="1" fill="#8e8e99"/>
+  <rect x="4" y="1" width="1" height="1" fill="#ffd44d"/>
+  <rect x="3" y="2" width="1" height="1" fill="#ffd44d"/>
+  <rect x="3" y="3" width="2" height="1" fill="#ffd44d"/>
+  <rect x="4" y="4" width="1" height="1" fill="#ffd44d"/>
+</svg>`;
+// face-down tile glyph: diamond + bolt
+SVG.glyph = () => `
+<svg class="glyph" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true">
+  <rect x="5" y="1" width="2" height="1" fill="#7c221b"/>
+  <rect x="4" y="2" width="4" height="1" fill="#7c221b"/>
+  <rect x="3" y="3" width="6" height="1" fill="#7c221b"/>
+  <rect x="2" y="4" width="8" height="1" fill="#7c221b"/>
+  <rect x="1" y="5" width="10" height="2" fill="#7c221b"/>
+  <rect x="2" y="7" width="8" height="1" fill="#7c221b"/>
+  <rect x="3" y="8" width="6" height="1" fill="#7c221b"/>
+  <rect x="4" y="9" width="4" height="1" fill="#7c221b"/>
+  <rect x="5" y="10" width="2" height="1" fill="#7c221b"/>
+  <rect x="6" y="3" width="1" height="1" fill="#ffd44d"/>
+  <rect x="5" y="4" width="2" height="1" fill="#ffd44d"/>
+  <rect x="5" y="5" width="1" height="1" fill="#ffd44d"/>
+  <rect x="4" y="5" width="3" height="1" fill="#ffd44d"/>
+  <rect x="5" y="6" width="2" height="1" fill="#ffd44d"/>
+  <rect x="5" y="7" width="1" height="1" fill="#ffd44d"/>
+  <rect x="4" y="8" width="1" height="1" fill="#ffd44d"/>
+</svg>`;
+// explosion star
+SVG.boom = () => `
+<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+  <rect x="7" y="0" width="2" height="3" fill="#ffd44d"/>
+  <rect x="7" y="13" width="2" height="3" fill="#ffd44d"/>
+  <rect x="0" y="7" width="3" height="2" fill="#ffd44d"/>
+  <rect x="13" y="7" width="3" height="2" fill="#ffd44d"/>
+  <rect x="2" y="2" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="12" y="2" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="2" y="12" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="12" y="12" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="5" y="5" width="6" height="6" fill="#fff3c0"/>
+  <rect x="6" y="6" width="4" height="4" fill="#ffffff"/>
+</svg>`;
+
+/* ============================================================
+   1. Level configurations
+   Each level offers several valid board recipes:
+   { t2: count of ×2 tiles, t3: count of ×3 tiles, v: orbs }
+   ============================================================ */
+const LEVELS = {
+  1: [{t2:3,t3:1,v:6},{t2:0,t3:3,v:6},{t2:5,t3:0,v:6},{t2:2,t3:2,v:6},{t2:4,t3:1,v:6}],
+  2: [{t2:1,t3:3,v:7},{t2:6,t3:0,v:7},{t2:3,t3:2,v:7},{t2:0,t3:4,v:7},{t2:5,t3:1,v:7}],
+  3: [{t2:2,t3:3,v:8},{t2:7,t3:0,v:8},{t2:4,t3:2,v:8},{t2:1,t3:4,v:8},{t2:6,t3:1,v:8}],
+  4: [{t2:3,t3:3,v:8},{t2:0,t3:5,v:8},{t2:8,t3:0,v:10},{t2:5,t3:2,v:10},{t2:2,t3:4,v:10}],
+  5: [{t2:7,t3:1,v:10},{t2:4,t3:3,v:10},{t2:1,t3:5,v:10},{t2:9,t3:0,v:10},{t2:6,t3:2,v:10}],
+  6: [{t2:3,t3:4,v:10},{t2:0,t3:6,v:10},{t2:8,t3:1,v:10},{t2:5,t3:3,v:10},{t2:2,t3:5,v:10}],
+  7: [{t2:7,t3:2,v:10},{t2:4,t3:4,v:10},{t2:1,t3:6,v:13},{t2:9,t3:1,v:13},{t2:6,t3:3,v:10}]
+};
+const MAX_LEVEL = 7;
+const N = 5; // board is N x N
+
+/* ============================================================
+   2. Board generation & clue calculation (pure functions)
+   ============================================================ */
+function shuffle(arr, rng){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(rng()* (i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function buildBoardFromConfig(cfg, rng){
+  const cells = new Array(N*N).fill(1);
+  const order = shuffle([...Array(N*N).keys()], rng);
+  let k = 0;
+  for(let i=0;i<cfg.v;i++)  cells[order[k++]] = 0;
+  for(let i=0;i<cfg.t2;i++) cells[order[k++]] = 2;
+  for(let i=0;i<cfg.t3;i++) cells[order[k++]] = 3;
+  return cells;
+}
+function computeClues(board){
+  const rows = [], cols = [];
+  for(let r=0;r<N;r++){
+    let pts=0, vs=0;
+    for(let c=0;c<N;c++){ const v = board[r*N+c]; pts+=v; if(v===0) vs++; }
+    rows.push({points:pts, voltorbs:vs});
+  }
+  for(let c=0;c<N;c++){
+    let pts=0, vs=0;
+    for(let r=0;r<N;r++){ const v = board[r*N+c]; pts+=v; if(v===0) vs++; }
+    cols.push({points:pts, voltorbs:vs});
+  }
+  return {rows, cols};
+}
+// A board has an "opening foothold" if at least one row or column has zero orbs
+// (so a purely logical first move exists).
+function hasOpeningFoothold(board){
+  const {rows, cols} = computeClues(board);
+  return rows.some(l=>l.voltorbs===0) || cols.some(l=>l.voltorbs===0);
+}
+function generateBoard(level, rng=Math.random){
+  const options = LEVELS[level];
+  const cfg = options[Math.floor(rng()*options.length)];
+  let board = null;
+  for(let attempt=0; attempt<14; attempt++){
+    board = buildBoardFromConfig(cfg, rng);
+    if(hasOpeningFoothold(board)) return {board, cfg};
+  }
+  return {board, cfg}; // rare: accept a tougher board
+}
+
+/* ============================================================
+   3. Deduction engine (uses ONLY player-visible information:
+      clues + currently revealed tiles)
+   ============================================================ */
+function analyzeVisible(clues, revealedValues){
+  // revealedValues: array of 25, value if revealed else null
+  const lineInfo = (indices, clue) => {
+    let sum=0, unknown=[];
+    for(const i of indices){
+      if(revealedValues[i]==null) unknown.push(i);
+      else sum += revealedValues[i];
+    }
+    const remPts = clue.points - sum;      // points among unknown tiles
+    const remOrbs = clue.voltorbs;         // orbs are never revealed mid-round
+    const u = unknown.length;
+    return {
+      unknown,
+      remPts, remOrbs,
+      safe: remOrbs===0,                        // no orbs left in line
+      allOrbs: u>0 && remOrbs===u,              // every unknown is an orb
+      dead: u>0 && remPts === (u - remOrbs)     // non-orb unknowns are all 1s
+    };
+  };
+  const rowIdx = r => Array.from({length:N},(_,c)=>r*N+c);
+  const colIdx = c => Array.from({length:N},(_,r)=>r*N+c);
+  const rows = clues.rows.map((cl,r)=>lineInfo(rowIdx(r), cl));
+  const cols = clues.cols.map((cl,c)=>lineInfo(colIdx(c), cl));
+
+  const safe = new Set(), orb = new Set();
+  for(let i=0;i<N*N;i++){
+    if(revealedValues[i]!=null) continue;
+    const r = Math.floor(i/N), c = i%N;
+    if(rows[r].safe || cols[c].safe) safe.add(i);
+    if(rows[r].allOrbs || cols[c].allOrbs) orb.add(i);
+  }
+  // a tile in a dead row OR dead column cannot be a 2/3
+  const cannotBeMultiplier = new Set();
+  for(let i=0;i<N*N;i++){
+    if(revealedValues[i]!=null) continue;
+    const r = Math.floor(i/N), c = i%N;
+    if(rows[r].dead || cols[c].dead) cannotBeMultiplier.add(i);
+  }
+  return {rows, cols, safe, orb, cannotBeMultiplier};
+}
+
+/* ============================================================
+   4. Persistence
+   ============================================================ */
+const SAVE_KEY = "sparkflip.v1";
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return {total:0, level:1, sound:true};
+    const d = JSON.parse(raw);
+    return {
+      total: Number.isFinite(d.total) && d.total>=0 ? Math.floor(d.total) : 0,
+      level: Number.isInteger(d.level) && d.level>=1 && d.level<=MAX_LEVEL ? d.level : 1,
+      sound: d.sound !== false
+    };
+  }catch(e){ return {total:0, level:1, sound:true}; }
+}
+function persist(){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      total: S.totalCoins, level: S.level, sound: S.sound
+    }));
+  }catch(e){}
+}
+
+/* ============================================================
+   5. Audio (tiny synthesized retro sounds)
+   ============================================================ */
+let actx = null;
+function ac(){
+  if(!actx){
+    try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+  }
+  if(actx && actx.state==="suspended") actx.resume();
+  return actx;
+}
+function tone(freq, dur, type="square", vol=0.08, when=0, slide=0){
+  if(!S.sound) return;
+  const ctx = ac(); if(!ctx) return;
+  const t0 = ctx.currentTime + when;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,freq+slide), t0+dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(t0); o.stop(t0+dur+0.02);
+}
+const SFX = {
+  flip(){ tone(520, .07, "square", .05); },
+  one(){ tone(420, .1, "square", .06); },
+  two(){ tone(660, .09, "square", .07); tone(880, .12, "square", .07, .07); },
+  three(){ tone(660, .08, "square", .07); tone(880, .08, "square", .07, .06); tone(1180, .16, "square", .08, .12); },
+  memo(){ tone(300, .05, "triangle", .07); },
+  cursor(){ tone(700, .03, "square", .03); },
+  boom(){ tone(220, .5, "sawtooth", .12, 0, -180); tone(90, .6, "square", .12, .04, -60); },
+  cash(){ [660,880,1100].forEach((f,i)=>tone(f,.1,"square",.07,i*.08)); },
+  win(){ [523,659,784,1046,1318].forEach((f,i)=>tone(f,.14,"square",.08,i*.09)); tone(1568,.4,"square",.07,.5); },
+  denied(){ tone(180,.15,"square",.07); }
+};
+
+/* ============================================================
+   6. Game state
+   ============================================================ */
+const saved = loadSave();
+const S = {
+  level: saved.level,
+  totalCoins: saved.total,
+  sound: saved.sound,
+  board: [],            // 25 hidden values
+  clues: null,
+  revealed: [],         // 25 booleans
+  memos: [],            // 25 arrays of Sets {0,1,2,3}
+  roundScore: 1,
+  flips: 0,             // tiles revealed this round
+  phase: "playing",     // playing | busy | ended
+  memoMode: false,
+  activeMark: 0,        // current memo mark (0=orb,1,2,3)
+  cursor: 12            // selected tile index
+};
+
+/* ============================================================
+   7. DOM construction
+   ============================================================ */
+const $ = sel => document.querySelector(sel);
+const boardEl = $("#board"), fxEl = $("#fx"), msgEl = $("#msg");
+const tiles = [], rowClueEls = [], colClueEls = [];
+
+function buildDOM(){
+  boardEl.innerHTML = "";
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const i = r*N+c;
+      const b = document.createElement("button");
+      b.className = "tile";
+      b.dataset.i = i;
+      b.setAttribute("aria-label", `Tile row ${r+1} column ${c+1}`);
+      b.innerHTML = `
+        <div class="card">
+          <div class="face front">${SVG.glyph()}
+            <div class="memos">
+              <span class="m mv">${SVG.orbMini()}</span>
+              <span class="m m1">1</span>
+              <span class="m m2">2</span>
+              <span class="m m3">3</span>
+            </div>
+          </div>
+          <div class="face back"></div>
+        </div>`;
+      b.addEventListener("click", () => onTileActivate(i));
+      b.addEventListener("contextmenu", e => { e.preventDefault(); toggleMemoOnTile(i, 0); });
+      boardEl.appendChild(b);
+      tiles.push(b);
+    }
+    const rc = document.createElement("div");
+    rc.className = `clue rowclue k${r}`;
+    rc.innerHTML = `<div class="pts"></div><div class="sep"></div><div class="vb">${SVG.orbMini()}<span></span></div>`;
+    boardEl.appendChild(rc);
+    rowClueEls.push(rc);
+  }
+  for(let c=0;c<N;c++){
+    const cc = document.createElement("div");
+    cc.className = `clue colclue k${c}`;
+    cc.innerHTML = `<div class="pts"></div><div class="sep"></div><div class="vb">${SVG.orbMini()}<span></span></div>`;
+    boardEl.appendChild(cc);
+    colClueEls.push(cc);
+  }
+  const corner = document.createElement("div");
+  corner.className = "corner";
+  corner.innerHTML = SVG.orb();
+  boardEl.appendChild(corner);
+
+  // memo palette buttons
+  const orbBtn = document.querySelector('.mkbtn[data-mark="0"]');
+  orbBtn.innerHTML = SVG.orbMini();
+}
+
+/* ============================================================
+   8. Rendering / updates
+   ============================================================ */
+function pad2(n){ return String(n).padStart(2,"0"); }
+
+function renderClues(){
+  for(let r=0;r<N;r++){
+    rowClueEls[r].querySelector(".pts").textContent = pad2(S.clues.rows[r].points);
+    rowClueEls[r].querySelector(".vb span").textContent = S.clues.rows[r].voltorbs;
+  }
+  for(let c=0;c<N;c++){
+    colClueEls[c].querySelector(".pts").textContent = pad2(S.clues.cols[c].points);
+    colClueEls[c].querySelector(".vb span").textContent = S.clues.cols[c].voltorbs;
+  }
+}
+function renderStats(){
+  $("#levelVal").textContent = S.level;
+  $("#totalVal").textContent = S.totalCoins.toLocaleString();
+  $("#roundVal").textContent = S.roundScore.toLocaleString();
+  $("#btnCash").disabled = !(S.phase==="playing" && S.flips>0);
+}
+function pulseScore(){
+  const el = $("#roundVal");
+  el.classList.remove("pulse");
+  void el.offsetWidth;
+  el.classList.add("pulse");
+}
+function renderTileBack(i){
+  const v = S.board[i];
+  const back = tiles[i].querySelector(".face.back");
+  back.className = "face back" + (v===2?" v2": v===3?" v3": v===0?" orb":"");
+  back.innerHTML = v===0 ? SVG.orb() : `<span>${v}</span>`;
+}
+function renderMemos(i){
+  const wrap = tiles[i].querySelector(".memos");
+  const set = S.memos[i];
+  wrap.querySelector(".mv").classList.toggle("on", set.has(0));
+  wrap.querySelector(".m1").classList.toggle("on", set.has(1));
+  wrap.querySelector(".m2").classList.toggle("on", set.has(2));
+  wrap.querySelector(".m3").classList.toggle("on", set.has(3));
+}
+function renderCursor(){
+  tiles.forEach((t,i)=>t.classList.toggle("sel", i===S.cursor));
+}
+function setMsg(text){
+  msgEl.textContent = text;
+  msgEl.classList.remove("flash");
+  void msgEl.offsetWidth;
+  msgEl.classList.add("flash");
+}
+function updateClueDoneStates(){
+  // dim clue panels for lines with nothing useful left (all non-orb tiles revealed)
+  const rv = revealedValues();
+  const a = analyzeVisible(S.clues, rv);
+  for(let r=0;r<N;r++){
+    const li = a.rows[r];
+    rowClueEls[r].classList.toggle("done", li.unknown.length===0 || li.unknown.length===li.remOrbs);
+  }
+  for(let c=0;c<N;c++){
+    const li = a.cols[c];
+    colClueEls[c].classList.toggle("done", li.unknown.length===0 || li.unknown.length===li.remOrbs);
+  }
+}
+
+/* ============================================================
+   9. Round lifecycle
+   ============================================================ */
+function newRound(level = S.level, announce = true){
+  S.level = Math.min(MAX_LEVEL, Math.max(1, level));
+  const gen = generateBoard(S.level);
+  S.board = gen.board;
+  S.clues = computeClues(S.board);
+  S.revealed = new Array(N*N).fill(false);
+  S.memos = Array.from({length:N*N}, ()=>new Set());
+  S.roundScore = 1;
+  S.flips = 0;
+  S.phase = "playing";
+  fxEl.innerHTML = "";
+  boardEl.classList.remove("shake","victory");
+  tiles.forEach((t,i)=>{
+    t.classList.remove("revealed","dimmed","hitOrb","winGlow","hintFlash","dangerFlash");
+    renderTileBack(i);
+    renderMemos(i);
+  });
+  renderClues();
+  renderStats();
+  renderCursor();
+  updateClueDoneStates();
+  persist();
+  if(announce){
+    const m = multiplierCount();
+    setMsg(`Level ${S.level} — find all ${m} multiplier tile${m===1?"":"s"}. Good luck!`);
+  }
+}
+function multiplierCount(){ return S.board.filter(v=>v>=2).length; }
+function revealedValues(){
+  return S.board.map((v,i)=>S.revealed[i]? v : null);
+}
+function allMultipliersFound(){
+  return S.board.every((v,i)=> v<2 || S.revealed[i]);
+}
+
+function onTileActivate(i){
+  if(S.phase!=="playing") return;
+  S.cursor = i; renderCursor();
+  if(S.memoMode){ toggleMemoOnTile(i, S.activeMark); return; }
+  revealTile(i);
+}
+
+function revealTile(i){
+  if(S.phase!=="playing" || S.revealed[i]) return;
+  const v = S.board[i];
+  S.revealed[i] = true;
+  S.memos[i].clear(); renderMemos(i);
+  tiles[i].classList.add("revealed");
+  SFX.flip();
+
+  if(v===0){ onOrbHit(i); return; }
+
+  S.flips++;
+  if(v===1){ setTimeout(()=>SFX.one(), 160); }
+  else{
+    S.roundScore *= v;
+    setTimeout(()=>{ v===2 ? SFX.two() : SFX.three(); pulseScore(); renderStats(); spawnSparks(tiles[i], v===3?14:8, ["#ffd44d","#ffab4d","#fff3c0"]); }, 200);
+  }
+  renderStats();
+  updateClueDoneStates();
+  if(allMultipliersFound()){ onVictory(); }
+}
+
+function onOrbHit(i){
+  S.phase = "busy";
+  renderStats();
+  tiles[i].classList.add("hitOrb");
+  setTimeout(()=>{
+    SFX.boom();
+    boardEl.classList.add("shake");
+    spawnSparks(tiles[i], 22, ["#ffd44d","#ff8c4d","#ff5858","#ffffff"]);
+    const boomIcon = document.createElement("div");
+    boomIcon.style.cssText = "position:absolute;width:70px;height:70px;pointer-events:none;z-index:6;animation:popIn .25s both;";
+    const rect = tiles[i].getBoundingClientRect(), wrap = fxEl.getBoundingClientRect();
+    boomIcon.style.left = (rect.left-wrap.left+rect.width/2-35)+"px";
+    boomIcon.style.top = (rect.top-wrap.top+rect.height/2-35)+"px";
+    boomIcon.innerHTML = SVG.boom();
+    fxEl.appendChild(boomIcon);
+    setTimeout(()=>boomIcon.remove(), 900);
+  }, 420);
+  // reveal the whole board so the player can study it
+  setTimeout(()=>{ revealAllBoard(i); }, 1050);
+  setTimeout(()=>{
+    const lost = S.roundScore;
+    const flips = S.flips;
+    const newLevel = Math.max(1, Math.min(S.level, Math.max(1, flips)));
+    const dropped = newLevel < S.level;
+    S.roundScore = 0;
+    S.phase = "ended";
+    renderStats();
+    showModal("KABOOM!", `
+      <p class="center" style="text-align:center">You flipped a Spark Orb!</p>
+      <p style="text-align:center">Coins lost this round: <b style="color:#ff8c8c">${lost.toLocaleString()}</b></p>
+      <p style="text-align:center">${dropped
+        ? `You drop back to <b style="color:var(--gold)">Level ${newLevel}</b>.`
+        : `You stay at <b style="color:var(--gold)">Level ${newLevel}</b>.`}</p>
+      <p style="text-align:center;color:var(--muted);font-size:11px">Study the revealed board, then try again!</p>`,
+      [{label:"Continue", cls:"blue", fn:()=>{ closeModal(); newRound(newLevel); }}]);
+  }, 2300);
+}
+
+function revealAllBoard(hitIndex){
+  let d = 0;
+  for(let i=0;i<N*N;i++){
+    if(S.revealed[i]) continue;
+    const tile = tiles[i];
+    setTimeout(()=>{
+      tile.classList.add("revealed");
+      if(i!==hitIndex) tile.classList.add("dimmed");
+    }, d);
+    d += 28;
+  }
+}
+
+function onVictory(){
+  S.phase = "busy";
+  renderStats();
+  const won = S.roundScore;
+  setTimeout(()=>{
+    SFX.win();
+    boardEl.classList.add("victory");
+    tiles.forEach((t,i)=>{ if(S.board[i]>=2) t.classList.add("winGlow"); });
+    for(let k=0;k<3;k++){
+      setTimeout(()=>spawnSparks(boardEl, 26, ["#ffd44d","#8be08b","#9ed4ff","#ffb3e2","#fff"]), k*260);
+    }
+  }, 350);
+  setTimeout(()=>{
+    S.totalCoins += won;
+    const next = Math.min(MAX_LEVEL, S.level+1);
+    const advanced = next > S.level;
+    S.phase = "ended";
+    renderStats();
+    persist();
+    revealAllBoard(-1);
+    showModal("LEVEL CLEARED!", `
+      <div class="big" style="text-align:center">+${won.toLocaleString()} coins</div>
+      <p style="text-align:center">${advanced
+        ? `Amazing! Advancing to <b style="color:var(--gold)">Level ${next}</b>!`
+        : `You conquered the final level — <b style="color:var(--gold)">Level ${MAX_LEVEL}</b> continues!`}</p>`,
+      [{label:"Continue", cls:"green", fn:()=>{ closeModal(); newRound(next); }}]);
+  }, 1900);
+}
+
+function cashOut(){
+  if(S.phase!=="playing" || S.flips===0){ SFX.denied(); return; }
+  const won = S.roundScore;
+  S.totalCoins += won;
+  S.phase = "ended";
+  SFX.cash();
+  renderStats();
+  persist();
+  revealAllBoard(-1);
+  showModal("CASHED OUT!", `
+    <div class="big" style="text-align:center">+${won.toLocaleString()} coins</div>
+    <p style="text-align:center">Banked safely. Total: <b style="color:var(--gold)">${S.totalCoins.toLocaleString()}</b></p>
+    <p style="text-align:center;color:var(--muted);font-size:11px">You stay at Level ${S.level}.</p>`,
+    [{label:"Continue", cls:"blue", fn:()=>{ closeModal(); newRound(S.level); }}]);
+}
+
+/* ============================================================
+   10. Memo system
+   ============================================================ */
+function setMemoMode(on){
+  S.memoMode = on;
+  $("#btnMemo").classList.toggle("memo-on", on);
+  $("#btnMemo").textContent = on ? "Memo: On" : "Memo";
+  $("#memoPalette").hidden = !on;
+  if(on) setMsg("Memo Mode — pick a mark, then tap tiles to note possibilities.");
+}
+function setActiveMark(m){
+  S.activeMark = m;
+  document.querySelectorAll(".mkbtn").forEach(b=>b.classList.toggle("active", Number(b.dataset.mark)===m));
+}
+function toggleMemoOnTile(i, mark){
+  if(S.phase!=="playing" || S.revealed[i]) return;
+  const set = S.memos[i];
+  set.has(mark) ? set.delete(mark) : set.add(mark);
+  renderMemos(i);
+  SFX.memo();
+}
+
+/* ============================================================
+   11. Hint system (only uses player-visible info)
+   ============================================================ */
+function giveHint(){
+  if(S.phase!=="playing"){ SFX.denied(); return; }
+  const rv = revealedValues();
+  const a = analyzeVisible(S.clues, rv);
+
+  // 1) best: a guaranteed-safe tile that could still be a 2/3
+  const juicy = [...a.safe].filter(i=>!a.cannotBeMultiplier.has(i));
+  if(juicy.length){
+    const i = juicy[Math.floor(Math.random()*juicy.length)];
+    flashTile(i, "hintFlash");
+    const r = Math.floor(i/N)+1, c = i%N+1;
+    const why = a.rows[r-1].safe ? `row ${r} has no orbs left` : `column ${c} has no orbs left`;
+    setMsg(`Hint: (row ${r}, col ${c}) is guaranteed safe — ${why}.`);
+    SFX.cursor();
+    return;
+  }
+  // 2) warn about a provable orb
+  if(a.orb.size){
+    const i = [...a.orb][0];
+    flashTile(i, "dangerFlash");
+    const r = Math.floor(i/N)+1, c = i%N+1;
+    setMsg(`Hint: (row ${r}, col ${c}) MUST be a Spark Orb — steer clear!`);
+    SFX.denied();
+    return;
+  }
+  // 3) safe but pointless tiles only
+  if(a.safe.size){
+    const i = [...a.safe][0];
+    flashTile(i, "hintFlash");
+    const r = Math.floor(i/N)+1, c = i%N+1;
+    setMsg(`Hint: (row ${r}, col ${c}) is safe, but its line holds only 1s. The remaining 2/3s are risky — consider cashing out.`);
+    return;
+  }
+  // 4) dead-line intel
+  const deadRows = a.rows.map((l,idx)=>l.dead?idx+1:null).filter(x=>x!=null);
+  const deadCols = a.cols.map((l,idx)=>l.dead?idx+1:null).filter(x=>x!=null);
+  if(deadRows.length || deadCols.length){
+    const bits = [];
+    if(deadRows.length) bits.push(`row${deadRows.length>1?"s":""} ${deadRows.join(", ")}`);
+    if(deadCols.length) bits.push(`column${deadCols.length>1?"s":""} ${deadCols.join(", ")}`);
+    setMsg(`Hint: ${bits.join(" and ")} hold no 2s or 3s — every flip there is a 1 or an orb.`);
+    return;
+  }
+  setMsg("Hint: no tile is provably safe right now. Weigh the odds — or cash out!");
+}
+function flashTile(i, cls){
+  tiles[i].classList.remove(cls);
+  void tiles[i].offsetWidth;
+  tiles[i].classList.add(cls);
+  setTimeout(()=>tiles[i].classList.remove(cls), 2000);
+}
+
+/* ============================================================
+   12. Particles
+   ============================================================ */
+function spawnSparks(anchorEl, count, colors){
+  const rect = anchorEl.getBoundingClientRect();
+  const wrap = fxEl.getBoundingClientRect();
+  const cx = rect.left - wrap.left + rect.width/2;
+  const cy = rect.top - wrap.top + rect.height/2;
+  for(let k=0;k<count;k++){
+    const s = document.createElement("div");
+    s.className = "spark";
+    const ang = Math.random()*Math.PI*2;
+    const dist = 40 + Math.random()*110;
+    s.style.left = cx+"px"; s.style.top = cy+"px";
+    s.style.setProperty("--dx", Math.cos(ang)*dist+"px");
+    s.style.setProperty("--dy", Math.sin(ang)*dist - 30 +"px");
+    s.style.background = colors[k%colors.length];
+    s.style.animationDelay = (Math.random()*0.12)+"s";
+    fxEl.appendChild(s);
+    setTimeout(()=>s.remove(), 1100);
+  }
+}
+
+/* ============================================================
+   13. Modal
+   ============================================================ */
+const modalEl = $("#modal");
+function showModal(title, bodyHTML, actions){
+  $("#modalTitle").textContent = title;
+  $("#modalBody").innerHTML = bodyHTML;
+  const act = $("#modalActions");
+  act.innerHTML = "";
+  for(const a of actions){
+    const b = document.createElement("button");
+    b.className = "btn " + (a.cls||"");
+    b.textContent = a.label;
+    b.addEventListener("click", a.fn);
+    act.appendChild(b);
+  }
+  modalEl.hidden = false;
+  // focus first action for keyboard users
+  setTimeout(()=>act.querySelector("button")?.focus(), 60);
+}
+function closeModal(){ modalEl.hidden = true; }
+
+function showHelp(){
+  showModal("HOW TO PLAY", `
+    <p><b>Each row and column tells you how many points and Spark Orbs it contains. Reveal every 2 and 3 tile to clear the level. Revealing an orb ends the round and loses your current winnings.</b></p>
+    <p>Your round score starts at 1 and is <b>multiplied</b> by every 2 or 3 you flip. Flipping a 1 is safe but earns nothing extra — and you never need the 1s to win.</p>
+    <p>Feeling nervous? <b>CASH OUT</b> any time after your first flip to bank the coins. Clearing a board advances you a level (up to 7); hitting an orb can drop you back down.</p>
+    <p><b>Memo Mode</b> lets you pencil-mark tiles with possible values (${SVG.orbMini().replace('<svg','<svg class="demo-orb"')}, 1, 2, 3) — marks are notes only and never change the tile.</p>
+    <table>
+      <tr><td><span class="kbd">←↑↓→</span> / <span class="kbd">WASD</span></td><td>move cursor</td></tr>
+      <tr><td><span class="kbd">Enter</span> / <span class="kbd">Space</span></td><td>flip selected tile</td></tr>
+      <tr><td><span class="kbd">M</span></td><td>toggle Memo Mode</td></tr>
+      <tr><td><span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span>, <span class="kbd">0</span>/<span class="kbd">V</span></td><td>toggle memo marks on selected tile</td></tr>
+      <tr><td><span class="kbd">H</span></td><td>hint &nbsp;·&nbsp; <span class="kbd">C</span> cash out</td></tr>
+      <tr><td>Right-click a tile</td><td>quick orb memo</td></tr>
+    </table>`,
+    [
+      {label:"Close", cls:"blue", fn:closeModal},
+      {label:"Reset Progress", cls:"gray", fn:confirmReset}
+    ]);
+}
+function confirmReset(){
+  showModal("RESET PROGRESS?", `
+    <p style="text-align:center">This erases your total coins and returns you to Level 1.</p>`,
+    [
+      {label:"Yes, reset", cls:"gray", fn:()=>{ S.totalCoins=0; S.level=1; persist(); closeModal(); newRound(1); setMsg("Progress reset. Fresh start!"); }},
+      {label:"Cancel", cls:"blue", fn:showHelp}
+    ]);
+}
+
+/* ============================================================
+   14. Input wiring
+   ============================================================ */
+$("#btnNew").addEventListener("click", ()=>{
+  if(S.phase==="busy") return;
+  if(S.phase==="playing" && S.flips>0){
+    showModal("START A NEW GAME?", `
+      <p style="text-align:center">Your current round winnings (<b style="color:#8be08b">${S.roundScore.toLocaleString()}</b>) will be forfeited.</p>`,
+      [
+        {label:"New game", cls:"blue", fn:()=>{ closeModal(); newRound(S.level); }},
+        {label:"Keep playing", cls:"green", fn:closeModal}
+      ]);
+  } else newRound(S.level);
+});
+$("#btnCash").addEventListener("click", cashOut);
+$("#btnMemo").addEventListener("click", ()=>setMemoMode(!S.memoMode));
+$("#btnHint").addEventListener("click", giveHint);
+$("#btnHelp").addEventListener("click", showHelp);
+$("#btnSound").addEventListener("click", ()=>{
+  S.sound = !S.sound;
+  $("#btnSound").textContent = "Sound: " + (S.sound?"On":"Off");
+  persist();
+  if(S.sound) SFX.cursor();
+});
+document.querySelectorAll(".mkbtn").forEach(b=>{
+  b.addEventListener("click", ()=>{ setActiveMark(Number(b.dataset.mark)); SFX.memo(); });
+});
+
+// keep keyboard focus off toolbar buttons so Enter/Space always act on the board
+document.addEventListener("click", e=>{
+  const b = e.target.closest("button");
+  if(b && !b.classList.contains("tile") && !b.closest("#modal")) b.blur();
+});
+
+document.addEventListener("keydown", e=>{
+  if(!modalEl.hidden){
+    if(e.key==="Escape") closeModal();
+    return;
+  }
+  const k = e.key.toLowerCase();
+  const move = (dr,dc)=>{
+    e.preventDefault();
+    const r = Math.floor(S.cursor/N), c = S.cursor%N;
+    S.cursor = ((r+dr+N)%N)*N + ((c+dc+N)%N);
+    renderCursor(); SFX.cursor();
+  };
+  switch(k){
+    case "arrowup": case "w": move(-1,0); break;
+    case "arrowdown": case "s": move(1,0); break;
+    case "arrowleft": case "a": move(0,-1); break;
+    case "arrowright": case "d": move(0,1); break;
+    case "enter": case " ":
+      e.preventDefault();
+      onTileActivate(S.cursor);
+      break;
+    case "m": setMemoMode(!S.memoMode); break;
+    case "1": toggleMemoOnTile(S.cursor,1); break;
+    case "2": toggleMemoOnTile(S.cursor,2); break;
+    case "3": toggleMemoOnTile(S.cursor,3); break;
+    case "0": case "v": toggleMemoOnTile(S.cursor,0); break;
+    case "h": giveHint(); break;
+    case "c": cashOut(); break;
+  }
+});
+
+/* ============================================================
+   15. Boot + test hooks
+   ============================================================ */
+buildDOM();
+setActiveMark(0);
+$("#btnSound").textContent = "Sound: " + (S.sound?"On":"Off");
+newRound(S.level, true);
+if(S.totalCoins===0 && S.level===1){
+  setMsg("Welcome! Flip tiles, find every 2 and 3, dodge the orbs. Press HOW TO PLAY to learn more.");
+}
+
+// Exposed for automated testing & debugging (does not affect gameplay)
+window.VF = {
+  LEVELS, N, MAX_LEVEL,
+  generateBoard, computeClues, analyzeVisible, buildBoardFromConfig,
+  state: S,
+  revealTile, cashOut, newRound, giveHint,
+  setBoard(board){ // deterministic board injection for tests
+    S.board = board.slice();
+    S.clues = computeClues(S.board);
+    S.revealed = new Array(N*N).fill(false);
+    S.memos = Array.from({length:N*N}, ()=>new Set());
+    S.roundScore = 1; S.flips = 0; S.phase = "playing";
+    tiles.forEach((t,i)=>{ t.classList.remove("revealed","dimmed","hitOrb","winGlow"); renderTileBack(i); renderMemos(i); });
+    renderClues(); renderStats(); updateClueDoneStates();
+  },
+  closeModal, isModalOpen: ()=>!modalEl.hidden
+};
+</script>
+</body>
+</html>
