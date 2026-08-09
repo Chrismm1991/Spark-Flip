@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SPARK FLIP — a deduction puzzle</title>
+<style>
+/* ============================================================
+   SPARK FLIP — original code & art, inspired by classic
+   handheld flip-and-deduce puzzle games.
+   v2: main menu + Easy / Medium / Hard difficulties
+   ============================================================ */
+:root{
+  --cell: 64px;               /* set dynamically by JS to fit board size */
+  --gap: clamp(3px, 0.7vw, 6px);
+  --bg0:#0e2a24;
+  --bg1:#14382f;
+  --felt:#1d4a3c;
+  --line:#0a201a;
+  --tile:#e8574a;
+  --tile-hi:#f4796b;
+  --tile-lo:#b23a30;
+  --card-face:#f3e7c9;
+  --card-face-lo:#d9c89e;
+  --gold:#ffd44d;
+  --ink:#20221f;
+  --text:#eef3e6;
+  --muted:#9db8a8;
+  --c0:#e8874a; --c1:#5cb85c; --c2:#e8c84a; --c3:#5c9ee8; --c4:#b06ce0;
+  --font: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  min-height:100svh;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #1c5445 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.045) 3px 4px),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+  color:var(--text);
+  font-family:var(--font);
+  display:flex; flex-direction:column; align-items:center;
+  padding: clamp(8px,2vh,20px) 10px 28px;
+  user-select:none;
+}
+
+/* ============ MAIN MENU ============ */
+#menuDecor{position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:0;}
+#menuDecor[hidden]{display:none;}
+.decor{
+  position:absolute; display:flex; align-items:center; justify-content:center;
+  border-radius:14%;
+  animation:decorFloat var(--dur, 7s) ease-in-out infinite alternate;
+}
+.decor.decor-tile{
+  background:linear-gradient(160deg, var(--tile-hi) 0%, var(--tile) 55%, var(--tile-lo) 100%);
+  border:2px solid #7c221b;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.28), 0 6px 14px rgba(0,0,0,.35);
+}
+.decor.decor-tile svg{width:52%; height:52%; opacity:.9;}
+.decor.decor-orb{
+  background:linear-gradient(170deg,#4a4a52,#33333a 60%,#222228);
+  border:2px solid #111;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.12), inset 0 -4px 0 rgba(0,0,0,.3), 0 6px 14px rgba(0,0,0,.35);
+}
+.decor.decor-orb svg{width:72%; height:72%;}
+@keyframes decorFloat{
+  from{transform:translateY(-7px) rotate(var(--rot, 0deg));}
+  to{transform:translateY(7px) rotate(var(--rot, 0deg));}
+}
+@media (max-width:640px){
+  .decor{width:38px !important; height:38px !important;}
+  .decor.mob-hide{display:none;}
+}
+#menu{width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:4vh; position:relative; z-index:1;}
+#menu[hidden]{display:none;}
+#menu .brand{font-size:clamp(26px,8vw,40px);}
+#menu .tagline{margin:-6px 0 8px; font-size:11px; letter-spacing:3px; color:var(--muted); text-transform:uppercase;}
+.diffcard{
+  width:100%; max-width:400px;
+  display:flex; flex-direction:column; gap:4px; align-items:flex-start;
+  font-family:var(--font); text-align:left; cursor:pointer;
+  background:linear-gradient(180deg,#1d4a3c,#123227);
+  border:3px solid #2c6a56; border-radius:14px;
+  padding:14px 18px; color:var(--text);
+  box-shadow:0 4px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.08);
+  transition:transform .08s ease, border-color .15s, box-shadow .15s;
+}
+.diffcard:hover{transform:translateY(-2px); border-color:var(--gold); box-shadow:0 6px 0 rgba(0,0,0,.35), 0 0 18px rgba(255,212,77,.25);}
+.diffcard:active{transform:translateY(1px);}
+.diffcard .dname{font-size:clamp(15px,4.5vw,19px); font-weight:800; letter-spacing:3px;}
+.diffcard.easy .dname{color:#8be08b;}
+.diffcard.medium .dname{color:var(--gold);}
+.diffcard.hard .dname{color:#ff8c8c;}
+.diffcard .ddesc{font-size:11px; line-height:1.5; color:#c4d8cb;}
+.diffcard .dprog{font-size:10.5px; letter-spacing:1px; color:var(--muted); margin-top:2px;}
+.diffcard .dprog b{color:var(--gold);}
+.menu-foot{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; justify-content:center;}
+#menuHome{display:flex; flex-direction:column; gap:10px; width:100%; align-items:center;}
+#menuHome[hidden]{display:none;}
+#menuDiff{display:flex; flex-direction:column; gap:14px; width:100%; align-items:center;}
+#menuDiff[hidden]{display:none;}
+.menu-btn{width:min(320px,100%); padding:14px 16px; font-size:14px; letter-spacing:2px;}
+#diffHeading{margin:0; font-size:11px; letter-spacing:2px; color:var(--gold); font-weight:800; text-transform:uppercase;}
+.diffcard.disabled{opacity:.45; filter:grayscale(.6); cursor:not-allowed;}
+.diffcard.disabled:hover{transform:none; border-color:#2c6a56; box-shadow:0 4px 0 rgba(0,0,0,.35);}
+
+/* ============ GAME ============ */
+#app{width:100%; max-width:720px; display:flex; flex-direction:column; align-items:center; gap:clamp(8px,1.4vh,14px);}
+#app[hidden]{display:none;}
+#topbar{width:100%; display:flex; flex-direction:column; gap:8px; align-items:center;}
+.brand{
+  display:flex; align-items:center; gap:10px;
+  font-weight:800; letter-spacing:3px; font-size:clamp(18px,4.5vw,26px);
+  color:var(--gold);
+  text-shadow: 0 2px 0 #7a5a00, 0 4px 0 rgba(0,0,0,.35);
+}
+.brand svg{filter: drop-shadow(0 2px 0 rgba(0,0,0,.4));}
+.stats{display:flex; gap:8px; width:100%; justify-content:center; flex-wrap:wrap;}
+.stat{
+  background:#0b241d; border:2px solid #2c6a56; border-radius:8px;
+  padding:6px 12px; min-width:96px; text-align:center;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.06), 0 3px 0 rgba(0,0,0,.35);
+}
+.stat .label{display:block; font-size:10px; letter-spacing:2px; color:var(--muted); font-weight:700;}
+.stat .val{display:block; font-size:clamp(15px,3.8vw,21px); font-weight:800; color:#fff; line-height:1.25;}
+.stat.level .val{color:var(--gold);}
+.stat.mode .val{font-size:clamp(12px,3vw,15px); letter-spacing:2px; padding-top:3px;}
+.stat.mode .val.easy{color:#8be08b;}
+.stat.mode .val.medium{color:var(--gold);}
+.stat.mode .val.hard{color:#ff8c8c;}
+.stat.round .val{color:#8be08b;}
+.stat.hearts .val{display:flex; gap:3px; align-items:center; justify-content:center; min-height:26px;}
+.heart{display:inline-flex; width:20px; height:20px;}
+.heart svg{width:100%; height:100%;}
+.heart svg path{fill:#ff5a76; stroke:#a8203c; stroke-width:1.6;}
+.heart.empty svg path{fill:transparent; stroke:#54323c;}
+.heart.breaking{animation:heartBreak .9s ease;}
+@keyframes heartBreak{
+  0%{transform:scale(1);}
+  25%{transform:scale(1.7) rotate(-10deg); filter:brightness(2.2) drop-shadow(0 0 6px rgba(255,90,118,.9));}
+  55%{transform:scale(.55) rotate(10deg); opacity:.4;}
+  100%{transform:scale(1); opacity:1;}
+}
+.stat.round .val.pulse{animation:pulse .45s ease;}
+@keyframes pulse{
+  0%{transform:scale(1); color:#8be08b;}
+  40%{transform:scale(1.45); color:var(--gold); text-shadow:0 0 12px rgba(255,212,77,.9);}
+  100%{transform:scale(1);}
+}
+
+#toolbar{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; width:100%;}
+.btn{
+  font-family:var(--font); font-weight:800; letter-spacing:1px;
+  font-size:clamp(10px,2.6vw,12px);
+  color:var(--ink); background:linear-gradient(180deg,#ffe89a,#f3c93f);
+  border:2px solid #8a6a12; border-radius:8px;
+  padding:9px 12px; cursor:pointer;
+  box-shadow: 0 3px 0 #8a6a12, inset 0 2px 0 rgba(255,255,255,.55);
+  transition: transform .06s ease, box-shadow .06s ease, filter .15s;
+  text-transform:uppercase;
+}
+.btn:hover{filter:brightness(1.05);}
+.btn:active{transform:translateY(3px); box-shadow:0 0 0 #8a6a12, inset 0 2px 0 rgba(255,255,255,.4);}
+.btn:disabled{filter:grayscale(.8) brightness(.75); cursor:not-allowed; opacity:.7;}
+.btn.blue{background:linear-gradient(180deg,#9ed4ff,#4f9fe0); border-color:#1c5a8a; box-shadow:0 3px 0 #1c5a8a, inset 0 2px 0 rgba(255,255,255,.5); color:#0b2540;}
+.btn.blue:active{box-shadow:0 0 0 #1c5a8a;}
+.btn.green{background:linear-gradient(180deg,#a8e8a0,#5fbf58); border-color:#2c6e28; box-shadow:0 3px 0 #2c6e28, inset 0 2px 0 rgba(255,255,255,.5); color:#0c2a0a;}
+.btn.green:active{box-shadow:0 0 0 #2c6e28;}
+.btn.gray{background:linear-gradient(180deg,#d8dfd6,#a9b3a7); border-color:#5c665b; box-shadow:0 3px 0 #5c665b, inset 0 2px 0 rgba(255,255,255,.5); color:#22281f;}
+.btn.gray:active{box-shadow:0 0 0 #5c665b;}
+.btn.memo-on{background:linear-gradient(180deg,#ffb3e2,#e060ad); border-color:#8a2864; box-shadow:0 3px 0 #8a2864, inset 0 2px 0 rgba(255,255,255,.5); color:#3d0a2a;}
+.btn.memo-on:active{box-shadow:0 0 0 #8a2864;}
+
+#memoPalette{
+  display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap;
+  background:#0b241d; border:2px solid #b45090; border-radius:10px;
+  padding:6px 12px;
+  box-shadow:0 3px 0 rgba(0,0,0,.35);
+}
+#memoPalette[hidden]{display:none;}
+#memoPalette .plabel{font-size:10px; letter-spacing:1px; color:#f0a4d0; font-weight:800;}
+.mkbtn{
+  width:36px; height:36px; border-radius:8px; border:2px solid #666;
+  font-family:var(--font); font-weight:800; font-size:15px; cursor:pointer;
+  background:#22352e; color:#cfe3d6; display:flex; align-items:center; justify-content:center;
+  transition: all .1s;
+}
+.mkbtn svg{width:20px;height:20px;}
+.mkbtn.active{background:var(--gold); color:var(--ink); border-color:#8a6a12; box-shadow:0 0 10px rgba(255,212,77,.6); transform:scale(1.08);}
+
+#boardWrap{position:relative;}
+#board{
+  display:grid;
+  gap:var(--gap);
+  background:var(--felt);
+  border:4px solid var(--line);
+  border-radius:14px;
+  padding: clamp(6px,1.2vw,12px);
+  box-shadow: 0 8px 0 rgba(0,0,0,.35), inset 0 0 0 2px #2f6c58, inset 0 0 40px rgba(0,0,0,.25);
+}
+#board.shake{animation:shake .5s ease;}
+@keyframes shake{
+  0%,100%{transform:translate(0,0);}
+  15%{transform:translate(-7px,2px) rotate(-1deg);}
+  30%{transform:translate(6px,-3px) rotate(1deg);}
+  45%{transform:translate(-5px,3px);}
+  60%{transform:translate(5px,-2px);}
+  75%{transform:translate(-3px,1px);}
+  90%{transform:translate(2px,-1px);}
+}
+#board.victory{animation:victoryGlow 1.2s ease;}
+@keyframes victoryGlow{
+  0%,100%{box-shadow:0 8px 0 rgba(0,0,0,.35), inset 0 0 0 2px #2f6c58;}
+  50%{box-shadow:0 8px 0 rgba(0,0,0,.35), inset 0 0 0 2px var(--gold), 0 0 40px rgba(255,212,77,.75);}
+}
+
+.tile{
+  position:relative; width:var(--cell); height:var(--cell);
+  background:transparent; border:none; padding:0; cursor:pointer;
+  perspective:600px; outline:none;
+  font-family:var(--font);
+}
+.tile .card{
+  position:absolute; inset:0;
+  transform-style:preserve-3d;
+  transition: transform .38s cubic-bezier(.3,1.4,.5,1);
+}
+.tile.revealed .card{transform:rotateY(180deg);}
+.face{
+  position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  border-radius: calc(var(--cell) * 0.13);
+  display:flex; align-items:center; justify-content:center;
+}
+.face.front{
+  background:linear-gradient(160deg, var(--tile-hi) 0%, var(--tile) 55%, var(--tile-lo) 100%);
+  border:2px solid #7c221b;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.28);
+}
+.face.front svg.glyph{width:52%; height:52%; opacity:.9;}
+.face.back{
+  transform:rotateY(180deg);
+  background:linear-gradient(170deg, #fbf3dd 0%, var(--card-face) 55%, var(--card-face-lo) 100%);
+  border:2px solid #9a8a5e;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.6), inset 0 -4px 0 rgba(0,0,0,.15);
+  color:var(--ink);
+  font-weight:800;
+  font-size: calc(var(--cell) * 0.5);
+  text-shadow: 0 2px 0 rgba(0,0,0,.15);
+}
+.tile.revealed .face.back > *{animation:popIn .3s .22s cubic-bezier(.3,1.8,.5,1) both;}
+@keyframes popIn{0%{transform:scale(.2); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+.face.back.v2{background:linear-gradient(170deg,#ffefb0,#ffd44d 60%,#e0a92e); border-color:#8a6a12; color:#5c3d00;}
+.face.back.v3{background:linear-gradient(170deg,#ffe2b0,#ffab4d 60%,#e07a2e); border-color:#8a4212; color:#5c2400;}
+.face.back.v4{background:linear-gradient(170deg,#ffc4d8,#ff6e9e 60%,#d8356e); border-color:#8a1240; color:#4a0620;}
+.face.back.v5{background:linear-gradient(170deg,#e2c4ff,#b06ce0 60%,#7e35b8); border-color:#4a1270; color:#2a0648;}
+.face.back.v2,.face.back.v3,.face.back.v4,.face.back.v5{box-shadow: inset 0 3px 0 rgba(255,255,255,.6), inset 0 -4px 0 rgba(0,0,0,.15), 0 0 12px rgba(255,200,80,.35);}
+.face.back.orb{background:linear-gradient(170deg,#4a4a52,#33333a 60%,#222228); border-color:#111;}
+.face.back.orb svg{width:76%; height:76%;}
+.tile.hitOrb .face.back{animation:orbFlash .8s ease .4s;}
+@keyframes orbFlash{
+  0%,100%{filter:none;}
+  20%{filter:brightness(3) saturate(0); background:#fff;}
+  40%{filter:brightness(.8) sepia(1) hue-rotate(-40deg) saturate(4);}
+  60%{filter:brightness(2.4);}
+}
+.tile.winGlow .face.back{animation:winGlow 1s ease 2;}
+@keyframes winGlow{
+  0%,100%{box-shadow:inset 0 3px 0 rgba(255,255,255,.6), inset 0 -4px 0 rgba(0,0,0,.15);}
+  50%{box-shadow:0 0 18px 4px rgba(255,212,77,.95), inset 0 0 12px rgba(255,255,255,.8);}
+}
+.tile:not(.revealed):hover .face.front{filter:brightness(1.1);}
+.tile.hintFlash::after{
+  content:""; position:absolute; inset:-4px; border-radius:12px;
+  border:3px solid #58ffb0; pointer-events:none;
+  animation:hintPing 1.9s ease;
+  box-shadow:0 0 16px rgba(88,255,176,.8);
+}
+@keyframes hintPing{0%{opacity:0; transform:scale(1.5);} 20%{opacity:1; transform:scale(1);} 80%{opacity:1;} 100%{opacity:0;}}
+.tile.dangerFlash::after{
+  content:""; position:absolute; inset:-4px; border-radius:12px;
+  border:3px solid #ff5858; pointer-events:none;
+  animation:hintPing 1.9s ease;
+  box-shadow:0 0 16px rgba(255,88,88,.8);
+}
+
+/* memo marks: 6 fixed slots (orb,1,2,3 + 4,5 on hard) */
+.memos{
+  position:absolute; inset:8%;
+  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr);
+  gap:2px; pointer-events:none;
+}
+.memos .m{
+  display:none; align-items:center; justify-content:center;
+  font-size: calc(var(--cell) * 0.19); font-weight:800;
+  color:#fff; text-shadow:0 1px 0 rgba(0,0,0,.6);
+  background:rgba(0,0,0,.38); border-radius:4px; border:1px solid rgba(255,255,255,.5);
+}
+.memos .m.on{display:flex;}
+.memos .m svg{width:75%; height:75%;}
+.m.mv{grid-area:1/1;} .m.m1{grid-area:1/2;} .m.m2{grid-area:1/3;}
+.m.m3{grid-area:2/1;} .m.m4{grid-area:2/2;} .m.m5{grid-area:2/3;}
+
+.clue{
+  width:100%; height:100%;
+  border-radius: calc(var(--cell) * 0.13);
+  border:2px solid rgba(0,0,0,.5);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px;
+  color:#fff;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.28), inset 0 -3px 0 rgba(0,0,0,.25);
+}
+.clue .pts{font-size:calc(var(--cell) * 0.26); font-weight:800; text-shadow:0 1px 0 rgba(0,0,0,.5); line-height:1;}
+.clue .sep{width:78%; height:2px; background:rgba(0,0,0,.35); border-radius:2px;}
+.clue .vb{display:flex; align-items:center; gap:2px; font-size:calc(var(--cell) * 0.24); font-weight:800; text-shadow:0 1px 0 rgba(0,0,0,.5); line-height:1;}
+.clue .vb svg{width:calc(var(--cell) * 0.24); height:calc(var(--cell) * 0.24);}
+.clue.k0{background:linear-gradient(180deg,#f09a5e,var(--c0));}
+.clue.k1{background:linear-gradient(180deg,#7ed07e,var(--c1));}
+.clue.k2{background:linear-gradient(180deg,#f0d86e,var(--c2));}
+.clue.k3{background:linear-gradient(180deg,#7eb4f0,var(--c3));}
+.clue.k4{background:linear-gradient(180deg,#c88ef0,var(--c4));}
+.clue.done{filter:saturate(.35) brightness(.75);}
+.corner{
+  display:flex; align-items:center; justify-content:center;
+  border-radius: calc(var(--cell) * 0.13);
+  background:#153a30; border:2px dashed #2f6c58;
+}
+.corner svg{width:55%; height:55%; opacity:.85;}
+
+/* interactive tutorial panel (below the board, never covers tiles) */
+#tutor{
+  width:100%; max-width:520px;
+  background:#0b241d; border:3px solid #58c8ff; border-radius:12px;
+  padding:12px 16px; text-align:center;
+  box-shadow:0 4px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.08);
+  animation:panelIn .25s cubic-bezier(.3,1.4,.5,1);
+}
+#tutor[hidden]{display:none;}
+#tutor .tstep{font-size:10px; letter-spacing:2px; color:#58c8ff; font-weight:800; margin-bottom:6px;}
+#tutor .tbody{font-size:clamp(11px,3vw,12.5px); line-height:1.65; color:#dceadf; text-align:left;}
+#tutor .tbody b{color:var(--gold);}
+#tutor .tactions{display:flex; gap:8px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
+/* tutorial highlights */
+.tutHl{box-shadow:0 0 0 3px #58c8ff, 0 0 14px rgba(88,200,255,.65) !important; border-radius:9px; z-index:2;}
+.tile.tutTarget::after{
+  content:""; position:absolute; inset:-4px; border-radius:12px;
+  border:3px solid #58ffb0; pointer-events:none;
+  animation:tutPulse 1s ease infinite;
+  box-shadow:0 0 14px rgba(88,255,176,.8);
+}
+@keyframes tutPulse{0%,100%{opacity:.35; transform:scale(1);} 50%{opacity:1; transform:scale(1.05);}}
+
+/* inline end-of-round result panel (below the board, never covers tiles) */
+#result{
+  width:100%; max-width:520px;
+  background:#0b241d; border:3px solid var(--gold); border-radius:12px;
+  padding:12px 16px; text-align:center;
+  box-shadow:0 4px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.08);
+  animation:panelIn .25s cubic-bezier(.3,1.4,.5,1);
+}
+#result[hidden]{display:none;}
+#result .rtitle{font-size:clamp(15px,4.5vw,20px); font-weight:800; letter-spacing:2px; color:var(--gold); text-shadow:0 2px 0 #7a5a00;}
+#result .rbody{font-size:clamp(11px,3vw,12.5px); line-height:1.6; color:#dceadf; margin:6px 0 2px;}
+#result .rbody b{color:var(--gold);}
+#result .rbig{font-size:clamp(17px,5vw,24px); font-weight:800; color:var(--gold); text-shadow:0 2px 0 #7a5a00; margin:4px 0;}
+#result .ractions{display:flex; gap:8px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
+#result.win{border-color:var(--gold);}
+#result.loss{border-color:#ff5858;}
+#result.loss .rtitle{color:#ff8c8c; text-shadow:0 2px 0 #5c1010;}
+
+#msg{
+  min-height:38px; width:100%; max-width:520px;
+  background:#0b241d; border:2px solid #2c6a56; border-radius:10px;
+  padding:8px 14px; text-align:center;
+  font-size:clamp(11px,3vw,13px); font-weight:700; letter-spacing:.4px;
+  color:#cfe8d8;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.06);
+  display:flex; align-items:center; justify-content:center;
+}
+#msg[hidden]{display:none;}
+#msg.flash{animation:msgFlash .4s ease;}
+@keyframes msgFlash{0%{background:#1d5a48;} 100%{background:#0b241d;}}
+
+#fx{position:absolute; inset:0; pointer-events:none; overflow:visible; z-index:5;}
+.spark{
+  position:absolute; width:10px; height:10px; border-radius:2px;
+  animation:fling .8s cubic-bezier(.2,.8,.4,1) forwards;
+}
+@keyframes fling{
+  0%{transform:translate(0,0) rotate(0deg) scale(1); opacity:1;}
+  100%{transform:translate(var(--dx),var(--dy)) rotate(540deg) scale(.2); opacity:0;}
+}
+
+#modal{
+  position:fixed; inset:0; z-index:50;
+  background:rgba(4,14,11,.75);
+  display:flex; align-items:center; justify-content:center;
+  padding:16px;
+  backdrop-filter:blur(2px);
+}
+#modal[hidden]{display:none;}
+.panel{
+  background:linear-gradient(180deg,#1d4a3c,#123227);
+  border:3px solid var(--gold); border-radius:14px;
+  max-width:440px; width:100%;
+  max-height:86svh; overflow-y:auto;
+  padding:20px 22px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.1);
+  animation:panelIn .25s cubic-bezier(.3,1.4,.5,1);
+  text-align:center;
+}
+@keyframes panelIn{0%{transform:scale(.8) translateY(20px); opacity:0;} 100%{transform:scale(1) translateY(0); opacity:1;}}
+.panel h2{
+  margin:0 0 12px; font-size:clamp(17px,5vw,22px); letter-spacing:2px; color:var(--gold);
+  text-shadow:0 2px 0 #7a5a00;
+}
+.panel .body{font-size:12.5px; line-height:1.65; color:#dceadf; text-align:left;}
+.panel .body p{margin:8px 0;}
+.panel .big{font-size:clamp(20px,6vw,28px); font-weight:800; color:var(--gold); margin:10px 0; text-shadow:0 2px 0 #7a5a00;}
+.panel .actions{display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap;}
+.panel .kbd{display:inline-block; background:#0b241d; border:1px solid #3a7a62; border-radius:4px; padding:1px 6px; font-size:11px; margin:0 1px;}
+.panel table{width:100%; border-collapse:collapse; font-size:11.5px; margin:6px 0;}
+.panel td{padding:3px 6px; border-bottom:1px solid rgba(255,255,255,.1);}
+.panel .demo-orb{width:18px;height:18px;vertical-align:-4px;}
+
+/* ---------- leaderboard ---------- */
+.lb-namebar{display:flex; gap:6px; align-items:center; justify-content:center; margin-bottom:10px; flex-wrap:wrap;}
+.lb-namebar label{font-size:10px; letter-spacing:1px; color:var(--muted); font-weight:800;}
+.lb-namebar input{
+  font-family:var(--font); font-weight:800; font-size:13px; letter-spacing:1px;
+  background:#0b241d; color:#fff; border:2px solid #3a7a62; border-radius:8px;
+  padding:7px 10px; width:170px; text-align:center; outline:none;
+}
+.lb-namebar input:focus{border-color:var(--gold);}
+.lb-namebar input.invalid{border-color:#ff5858; box-shadow:0 0 8px rgba(255,88,88,.4);}
+.lb-tabs{display:flex; gap:6px; justify-content:center; margin-bottom:10px;}
+.lb-tab{
+  font-family:var(--font); font-weight:800; font-size:11px; letter-spacing:1px;
+  background:#0b241d; color:var(--muted); border:2px solid #2c6a56; border-radius:8px;
+  padding:7px 12px; cursor:pointer; text-transform:uppercase;
+}
+.lb-tab.active{background:var(--gold); color:var(--ink); border-color:#8a6a12;}
+.lb-list{display:flex; flex-direction:column; gap:4px; min-height:120px;}
+.lb-row{
+  display:flex; align-items:center; gap:8px;
+  background:#0b241d; border:2px solid #1e4a3c; border-radius:8px;
+  padding:6px 10px; font-size:12px; font-weight:700;
+}
+.lb-row.me{border-color:var(--gold); box-shadow:0 0 8px rgba(255,212,77,.25);}
+.lb-rank{width:26px; text-align:center; font-weight:800; color:var(--muted);}
+.lb-row:nth-child(1) .lb-rank{color:#ffd44d;}
+.lb-row:nth-child(2) .lb-rank{color:#cfd8dc;}
+.lb-row:nth-child(3) .lb-rank{color:#e8955e;}
+.lb-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#eef3e6; text-align:left;}
+.lb-coins{color:var(--gold); font-weight:800;}
+.lb-lv{font-size:10px; color:var(--muted); width:44px; text-align:right;}
+.lb-note{margin-top:10px; font-size:10.5px; line-height:1.5; color:var(--muted); text-align:center;}
+.lb-empty{padding:20px 6px; text-align:center; color:var(--muted); font-size:11.5px;}
+
+footer{margin-top:6px; font-size:10px; color:#5f8272; letter-spacing:1px; text-align:center;}
+@media (max-width:420px){
+  .stat{min-width:84px; padding:5px 8px;}
+  .btn{padding:8px 9px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ MAIN MENU ============ -->
+<div id="menuDecor" aria-hidden="true"></div>
+<div id="menu">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M15.2 1.9 Q15.9 1.1 15.5 2.1 L12.9 9.2 Q12.7 9.8 13.3 9.8 L16.9 9.8 Q17.9 9.8 17.2 10.7 L8.9 21.9 Q8.1 22.9 8.5 21.7 L10.9 14.6 Q11.1 14.0 10.5 14.0 L7.1 14.0 Q6.1 14.0 6.7 13.1 Z"
+            fill="#ffd44d" stroke="#8a6a12" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M14.4 3.6 L9.2 10.8" fill="none" stroke="#ffe89a" stroke-width="1.1" stroke-linecap="round" opacity="0.9"/>
+    </svg>
+    SPARK FLIP
+  </div>
+  <p class="tagline">A flip-and-deduce puzzle</p>
+
+  <div id="menuHome">
+    <button class="btn blue menu-btn" id="mnNew">New Game</button>
+    <button class="btn green menu-btn" id="mnContinue">Continue Game</button>
+    <button class="btn menu-btn" id="mnLb">Leaderboard</button>
+    <button class="btn gray menu-btn" id="mnHelp">How To Play</button>
+    <div class="menu-foot">
+      <button class="btn gray" id="menuSound">Sound: On</button>
+    </div>
+  </div>
+
+  <div id="menuDiff" hidden>
+    <p id="diffHeading"></p>
+    <button class="diffcard easy" data-diff="easy">
+      <span class="dname">EASY</span>
+      <span class="ddesc">A friendly 5&times;5 board with fewer Spark Orbs. Perfect for learning the ropes.</span>
+      <span class="dprog" data-prog="easy"></span>
+    </button>
+    <button class="diffcard medium" data-diff="medium">
+      <span class="dname">MEDIUM</span>
+      <span class="ddesc">The classic 5&times;5 experience. Points and Spark Orb counts guide your deductions.</span>
+      <span class="dprog" data-prog="medium"></span>
+    </button>
+    <button class="diffcard hard" data-diff="hard">
+      <span class="dname">HARD</span>
+      <span class="ddesc">A bigger 6&times;6 board where &times;4 and &times;5 tiles enter play. Huge payouts, huge risks.</span>
+      <span class="dprog" data-prog="hard"></span>
+    </button>
+    <button class="btn gray" id="diffBack">&larr; Back</button>
+  </div>
+  <footer>SPARK FLIP · an original fan-made deduction puzzle · progress auto-saves</footer>
+</div>
+
+<!-- ============ GAME ============ -->
+<div id="app" hidden>
+  <header id="topbar">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15.2 1.9 Q15.9 1.1 15.5 2.1 L12.9 9.2 Q12.7 9.8 13.3 9.8 L16.9 9.8 Q17.9 9.8 17.2 10.7 L8.9 21.9 Q8.1 22.9 8.5 21.7 L10.9 14.6 Q11.1 14.0 10.5 14.0 L7.1 14.0 Q6.1 14.0 6.7 13.1 Z"
+              fill="#ffd44d" stroke="#8a6a12" stroke-width="0.9" stroke-linejoin="round"/>
+        <path d="M14.4 3.6 L9.2 10.8" fill="none" stroke="#ffe89a" stroke-width="1.1" stroke-linecap="round" opacity="0.9"/>
+      </svg>
+      SPARK FLIP
+    </div>
+    <div class="stats">
+      <div class="stat mode"><span class="label">MODE</span><span class="val" id="modeVal">MEDIUM</span></div>
+      <div class="stat level"><span class="label">LEVEL</span><span class="val" id="levelVal">1</span></div>
+      <div class="stat hearts"><span class="label">TRIES</span><span class="val" id="heartsVal"></span></div>
+      <div class="stat total"><span class="label">TOTAL COINS</span><span class="val" id="totalVal">0</span></div>
+      <div class="stat round"><span class="label">THIS ROUND</span><span class="val" id="roundVal">1</span></div>
+    </div>
+  </header>
+
+  <div id="toolbar">
+    <button class="btn gray" id="btnMenu">Menu</button>
+    <button class="btn blue" id="btnNew">New Game</button>
+    <button class="btn" id="btnMemo">Memo</button>
+    <button class="btn gray" id="btnHint">Hint</button>
+    <button class="btn gray" id="btnSound">Sound: On</button>
+  </div>
+
+  <div id="memoPalette" hidden>
+    <span class="plabel">MARK:</span>
+    <span id="paletteMarks" style="display:flex;gap:8px;"></span>
+  </div>
+
+  <div id="boardWrap">
+    <div id="board" role="grid" aria-label="Puzzle board"></div>
+    <div id="fx"></div>
+  </div>
+
+  <div id="tutor" hidden>
+    <div class="tstep"></div>
+    <div class="tbody"></div>
+    <div class="tactions"></div>
+  </div>
+
+  <div id="result" hidden>
+    <div class="rtitle"></div>
+    <div class="rbody"></div>
+    <div class="ractions"></div>
+  </div>
+
+  <div id="msg">Flip tiles. Find every multiplier. Dodge the Spark Orbs!</div>
+
+  <footer>SPARK FLIP · an original fan-made deduction puzzle · progress auto-saves</footer>
+</div>
+
+<div id="modal" hidden>
+  <div class="panel" role="dialog" aria-modal="true">
+    <h2 id="modalTitle"></h2>
+    <div class="body" id="modalBody"></div>
+    <div class="actions" id="modalActions"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   LEADERBOARD SETUP (optional — shared online scores)
+   ------------------------------------------------------------
+   1. Go to https://console.firebase.google.com and create a
+      free project (no Analytics needed).
+   2. In the project: Build -> Realtime Database -> Create
+      Database -> start in locked mode.
+   3. In the database's Rules tab, paste:
+      {
+        "rules": {
+          "leaderboard": {
+            "$diff": {
+              ".read": true,
+              ".indexOn": ["coins"],
+              "$player": { ".write": true }
+            }
+          }
+        }
+      }
+      ...and click Publish.
+   4. Copy the database URL shown at the top of the Data tab
+      (looks like https://YOUR-PROJECT-default-rtdb.firebaseio.com)
+      and paste it between the quotes below.
+   Until then, the leaderboard runs in "this device only" mode.
+   ============================================================ */
+const LEADERBOARD_CONFIG = {
+  databaseURL: "https://spark-flip-d2f28-default-rtdb.firebaseio.com"
+};
+
+/* ============================================================
+   0. Pixel-art SVG assets (original artwork)
+   ============================================================ */
+const SVG = {};
+SVG.orb = (cls="") => `
+<svg class="${cls}" viewBox="0 0 24 24" aria-label="Spark Orb">
+  <path d="M12.2 4.6 Q12.6 2.6 14.6 2.1" fill="none" stroke="#4a4a52" stroke-width="1.7" stroke-linecap="round"/>
+  <path d="M16.4 1.0 L17.0 2.3 L18.3 2.9 L17.0 3.5 L16.4 4.8 L15.8 3.5 L14.5 2.9 L15.8 2.3 Z" fill="#ffd44d"/>
+  <circle cx="12" cy="13.6" r="8.9" fill="#3d3d44" stroke="#17171b" stroke-width="1.1"/>
+  <circle cx="12.6" cy="15.2" r="7.0" fill="#2b2b31"/>
+  <ellipse cx="8.4" cy="9.9" rx="3.3" ry="2.3" fill="#7b7b88" opacity="0.85" transform="rotate(-24 8.4 9.9)"/>
+  <path d="M13.3 7.4 L8.9 13.7 Q8.6 14.2 9.2 14.2 L11.2 14.2 L10.1 18.7 Q10.0 19.4 10.5 18.8 L15.3 12.5 Q15.7 12.0 15.1 12.0 L13.0 12.0 L14.4 7.8 Q14.6 7.1 14.1 7.4 Z"
+        fill="#ffd44d" stroke="#ffe89a" stroke-width="0.5" stroke-linejoin="round"/>
+</svg>`;
+SVG.orbMini = () => `
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  <circle cx="12" cy="12.6" r="9.6" fill="#3d3d44" stroke="#17171b" stroke-width="1.2"/>
+  <circle cx="12.6" cy="14.4" r="7.4" fill="#2b2b31"/>
+  <ellipse cx="8.2" cy="8.6" rx="3.4" ry="2.4" fill="#7b7b88" opacity="0.85" transform="rotate(-24 8.2 8.6)"/>
+  <path d="M13.6 5.6 L8.4 13.0 Q8.1 13.5 8.7 13.5 L11.0 13.5 L9.8 18.8 Q9.7 19.5 10.2 18.9 L15.8 11.6 Q16.2 11.1 15.6 11.1 L13.3 11.1 L14.8 6.0 Q15.0 5.3 14.5 5.6 Z"
+        fill="#ffd44d" stroke="#ffe89a" stroke-width="0.6" stroke-linejoin="round"/>
+</svg>`;
+SVG.glyph = () => `
+<svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+  <rect x="4.6" y="4.6" width="14.8" height="14.8" rx="3.2" transform="rotate(45 12 12)"
+        fill="#7c221b" stroke="#611711" stroke-width="0.8"/>
+  <rect x="6.4" y="6.4" width="11.2" height="11.2" rx="2.4" transform="rotate(45 12 12)"
+        fill="none" stroke="#93342a" stroke-width="0.9" opacity="0.85"/>
+  <path d="M13.6 4.6 L7.9 13.1 Q7.6 13.6 8.2 13.6 L10.9 13.6 L9.5 19 Q9.4 19.7 9.9 19.1 L16.1 10.9 Q16.5 10.4 15.9 10.4 L13.2 10.4 L15 5 Q15.2 4.2 14.6 4.6 Z"
+        fill="#ffd44d" stroke="#ffe89a" stroke-width="0.5" stroke-linejoin="round"/>
+</svg>`;
+SVG.heart = () => `
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  <path d="M12 20.2 C6.6 15.9 3.2 12.8 3.2 9.1 C3.2 6.3 5.3 4.2 7.9 4.2 C9.6 4.2 11.1 5.1 12 6.5 C12.9 5.1 14.4 4.2 16.1 4.2 C18.7 4.2 20.8 6.3 20.8 9.1 C20.8 12.8 17.4 15.9 12 20.2 Z"
+        stroke-linejoin="round"/>
+</svg>`;
+SVG.boom = () => `
+<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+  <rect x="7" y="0" width="2" height="3" fill="#ffd44d"/>
+  <rect x="7" y="13" width="2" height="3" fill="#ffd44d"/>
+  <rect x="0" y="7" width="3" height="2" fill="#ffd44d"/>
+  <rect x="13" y="7" width="3" height="2" fill="#ffd44d"/>
+  <rect x="2" y="2" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="12" y="2" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="2" y="12" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="12" y="12" width="2" height="2" fill="#ff8c4d"/>
+  <rect x="5" y="5" width="6" height="6" fill="#fff3c0"/>
+  <rect x="6" y="6" width="4" height="4" fill="#ffffff"/>
+</svg>`;
+
+/* ============================================================
+   1. Difficulty & level configurations
+   A "recipe" is { counts: {value: howMany}, v: orbCount }.
+   ============================================================ */
+const MAX_LEVEL = 20;
+const MILESTONE_EVERY = 5;
+// Highest milestone at or below this level (1 if none reached yet)
+function checkpointFor(level){
+  const m = level - (level % MILESTONE_EVERY);
+  return level % MILESTONE_EVERY === 0 ? level : Math.max(1, m);
+}
+
+// Medium: the classic tables (5x5) for levels 1-7
+const MEDIUM_LEVELS = {
+  1: [{c:{2:3,3:1},v:6},{c:{2:0,3:3},v:6},{c:{2:5,3:0},v:6},{c:{2:2,3:2},v:6},{c:{2:4,3:1},v:6}],
+  2: [{c:{2:1,3:3},v:7},{c:{2:6,3:0},v:7},{c:{2:3,3:2},v:7},{c:{2:0,3:4},v:7},{c:{2:5,3:1},v:7}],
+  3: [{c:{2:2,3:3},v:8},{c:{2:7,3:0},v:8},{c:{2:4,3:2},v:8},{c:{2:1,3:4},v:8},{c:{2:6,3:1},v:8}],
+  4: [{c:{2:3,3:3},v:8},{c:{2:0,3:5},v:8},{c:{2:8,3:0},v:10},{c:{2:5,3:2},v:10},{c:{2:2,3:4},v:10}],
+  5: [{c:{2:7,3:1},v:10},{c:{2:4,3:3},v:10},{c:{2:1,3:5},v:10},{c:{2:9,3:0},v:10},{c:{2:6,3:2},v:10}],
+  6: [{c:{2:3,3:4},v:10},{c:{2:0,3:6},v:10},{c:{2:8,3:1},v:10},{c:{2:5,3:3},v:10},{c:{2:2,3:5},v:10}],
+  7: [{c:{2:7,3:2},v:10},{c:{2:4,3:4},v:10},{c:{2:1,3:6},v:13},{c:{2:9,3:1},v:13},{c:{2:6,3:3},v:10}]
+};
+// Easy: fewer orbs (5x5) for levels 1-7
+const EASY_LEVELS = {
+  1: [{c:{2:3,3:0},v:4},{c:{2:2,3:1},v:4},{c:{2:4,3:0},v:4}],
+  2: [{c:{2:3,3:1},v:4},{c:{2:1,3:2},v:4},{c:{2:5,3:0},v:4}],
+  3: [{c:{2:4,3:1},v:5},{c:{2:2,3:2},v:5},{c:{2:0,3:3},v:5}],
+  4: [{c:{2:5,3:1},v:5},{c:{2:3,3:2},v:5},{c:{2:1,3:3},v:5}],
+  5: [{c:{2:6,3:1},v:6},{c:{2:4,3:2},v:6},{c:{2:2,3:3},v:6}],
+  6: [{c:{2:6,3:2},v:6},{c:{2:4,3:3},v:6},{c:{2:1,3:4},v:6}],
+  7: [{c:{2:7,3:2},v:7},{c:{2:5,3:3},v:7},{c:{2:2,3:4},v:7}]
+};
+function pickFrom(arr, rng){ return arr[Math.floor(rng()*arr.length)]; }
+// Smooth 0..1 ramp across levels 8..20 (used to scale procedural recipes)
+function ramp(level, from=8){ return Math.min(1, Math.max(0, (level - from) / (MAX_LEVEL - from))); }
+
+// Easy: 5x5, always fewer orbs than Medium. Table for 1-7, scaled beyond.
+function easyRecipe(level, rng){
+  if(level <= 7) return {...pickFrom(EASY_LEVELS[level], rng), n:5};
+  const t = ramp(level);
+  const v = Math.min(9, 7 + Math.round(t * 2));                 // 7 -> 9 orbs
+  const multTotal = Math.min(9, 7 + Math.round(t * 2));         // 7 -> 9 multipliers
+  const threes = Math.min(multTotal, 4 + Math.round(t * 2));    // shift toward 3s
+  return {c:{2: multTotal - threes, 3: threes}, v, n:5};
+}
+// Medium: the classic 5x5 rules. Table for 1-7, scaled beyond.
+function mediumRecipe(level, rng){
+  if(level <= 7) return {...pickFrom(MEDIUM_LEVELS[level], rng), n:5};
+  const t = ramp(level);
+  const v = Math.min(13, 10 + Math.round(t * 3));               // 10 -> 13 orbs
+  const multTotal = Math.min(10, 7 + Math.round(t * 3));        // 7 -> 10 multipliers
+  const threes = Math.min(multTotal, 4 + Math.round(t * 3));
+  return {c:{2: multTotal - threes, 3: threes}, v, n:5};
+}
+// Hard: fixed 6x6 board; x4 tiles from the start, x5 tiles from level 6.
+function hardRecipe(level, rng){
+  const n = 6, area = n * n;
+  const t = (level - 1) / (MAX_LEVEL - 1);
+  const v = Math.round(area * (0.25 + t * 0.11));               // 9 -> 13 orbs
+  const multTotal = Math.max(3, Math.round(area * (0.16 + t * 0.10))); // ~6 -> ~9
+  const maxVal = level >= 6 ? 5 : 4;
+  const weights = {2: 6, 3: 3 + level * 0.25, 4: 1.5 + level * 0.25, 5: maxVal >= 5 ? 0.4 + level * 0.15 : 0};
+  const counts = {2:0, 3:0, 4:0, 5:0};
+  const pool = [2,3,4].concat(maxVal >= 5 ? [5] : []);
+  const totalW = pool.reduce((s,k)=>s+weights[k],0);
+  for(let i=0;i<multTotal;i++){
+    let roll = rng() * totalW;
+    for(const k of pool){ roll -= weights[k]; if(roll <= 0){ counts[k]++; break; } }
+  }
+  if(counts[2]+counts[3]+counts[4]+counts[5]===0) counts[2] = multTotal;
+  // guarantee at least one x4 (or x5) so Hard always feels different
+  if(counts[4]===0 && counts[5]===0){ counts[2] = Math.max(0, counts[2]-1); counts[4]++; }
+  return {c: counts, v, n};
+}
+
+const DIFF = {
+  easy:   {label:"EASY",   maxVal:3, recipe:easyRecipe},
+  medium: {label:"MEDIUM", maxVal:3, recipe:mediumRecipe},
+  hard:   {label:"HARD",   maxVal:5, recipe:hardRecipe}
+};
+
+/* ============================================================
+   2. Board generation & clue calculation (pure, size-aware)
+   ============================================================ */
+function shuffle(arr, rng){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(rng()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function buildBoardFromRecipe(recipe, n, rng){
+  const cells = new Array(n*n).fill(1);
+  const order = shuffle([...Array(n*n).keys()], rng);
+  let k = 0;
+  for(let i=0;i<recipe.v;i++) cells[order[k++]] = 0;
+  for(const val of [2,3,4,5]){
+    const cnt = recipe.c[val] || 0;
+    for(let i=0;i<cnt;i++) cells[order[k++]] = val;
+  }
+  return cells;
+}
+function computeClues(board, n){
+  const rows = [], cols = [];
+  for(let r=0;r<n;r++){
+    let pts=0, vs=0;
+    for(let c=0;c<n;c++){ const v = board[r*n+c]; pts+=v; if(v===0) vs++; }
+    rows.push({points:pts, voltorbs:vs});
+  }
+  for(let c=0;c<n;c++){
+    let pts=0, vs=0;
+    for(let r=0;r<n;r++){ const v = board[r*n+c]; pts+=v; if(v===0) vs++; }
+    cols.push({points:pts, voltorbs:vs});
+  }
+  return {rows, cols};
+}
+function hasOpeningFoothold(board, n){
+  const {rows, cols} = computeClues(board, n);
+  return rows.some(l=>l.voltorbs===0) || cols.some(l=>l.voltorbs===0);
+}
+function generateBoard(difficulty, level, rng=Math.random){
+  const d = DIFF[difficulty];
+  const recipe = d.recipe(level, rng);
+  const n = recipe.n;
+  let board = null;
+  for(let attempt=0; attempt<14; attempt++){
+    board = buildBoardFromRecipe(recipe, n, rng);
+    if(hasOpeningFoothold(board, n)) return {board, recipe, n};
+  }
+  return {board, recipe, n};
+}
+
+/* ============================================================
+   3. Deduction engine (player-visible info only)
+   ============================================================ */
+function analyzeVisible(clues, revealedValues, n){
+  const lineInfo = (indices, clue) => {
+    let sum=0, unknown=[];
+    for(const i of indices){
+      if(revealedValues[i]==null) unknown.push(i);
+      else sum += revealedValues[i];
+    }
+    const remPts = clue.points - sum;
+    const remOrbs = clue.voltorbs;
+    const u = unknown.length;
+    return {
+      unknown, remPts, remOrbs,
+      safe: remOrbs===0,
+      allOrbs: u>0 && remOrbs===u,
+      dead: u>0 && remPts === (u - remOrbs)   // non-orb unknowns are all 1s
+    };
+  };
+  const rowIdx = r => Array.from({length:n},(_,c)=>r*n+c);
+  const colIdx = c => Array.from({length:n},(_,r)=>r*n+c);
+  const rows = clues.rows.map((cl,r)=>lineInfo(rowIdx(r), cl));
+  const cols = clues.cols.map((cl,c)=>lineInfo(colIdx(c), cl));
+
+  const safe = new Set(), orb = new Set(), cannotBeMultiplier = new Set();
+  for(let i=0;i<n*n;i++){
+    if(revealedValues[i]!=null) continue;
+    const r = Math.floor(i/n), c = i%n;
+    if(rows[r].safe || cols[c].safe) safe.add(i);
+    if(rows[r].allOrbs || cols[c].allOrbs) orb.add(i);
+    if(rows[r].dead || cols[c].dead) cannotBeMultiplier.add(i);
+  }
+  return {rows, cols, safe, orb, cannotBeMultiplier};
+}
+
+/* ============================================================
+   4. Persistence (per-difficulty progress)
+   ============================================================ */
+const SAVE_KEY = "sparkflip.v2";
+const OLD_KEY = "sparkflip.v1";
+function freshProg(){ return {easy:{total:0,level:1,streak:0}, medium:{total:0,level:1,streak:0}, hard:{total:0,level:1,streak:0}}; }
+function makePlayerId(){
+  return "p" + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+}
+function loadSave(){
+  const out = {prog: freshProg(), sound:true, last:null, name:"", playerId:makePlayerId()};
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      for(const k of ["easy","medium","hard"]){
+        const p = d.prog && d.prog[k];
+        if(p && Number.isFinite(p.total) && p.total>=0) out.prog[k].total = Math.floor(p.total);
+        if(p && Number.isInteger(p.level) && p.level>=1 && p.level<=MAX_LEVEL) out.prog[k].level = p.level;
+        if(p && Number.isInteger(p.streak) && p.streak>=0) out.prog[k].streak = Math.min(2, p.streak);
+      }
+      out.sound = d.sound !== false;
+      if(["easy","medium","hard"].includes(d.last)) out.last = d.last;
+      if(typeof d.name === "string") out.name = d.name.slice(0,14);
+      if(typeof d.playerId === "string" && d.playerId) out.playerId = d.playerId;
+      return out;
+    }
+    // migrate v1 save (pre-difficulty) into Medium
+    const old = localStorage.getItem(OLD_KEY);
+    if(old){
+      const d = JSON.parse(old);
+      if(Number.isFinite(d.total) && d.total>=0) out.prog.medium.total = Math.floor(d.total);
+      if(Number.isInteger(d.level) && d.level>=1 && d.level<=MAX_LEVEL) out.prog.medium.level = d.level;
+      out.sound = d.sound !== false;
+    }
+  }catch(e){}
+  return out;
+}
+function persist(){
+  if(S.isTutorial) return;   // the demo game must never touch real saves
+  if(S.difficulty){
+    S.prog[S.difficulty].total = S.totalCoins;
+    S.prog[S.difficulty].level = S.level;
+    S.prog[S.difficulty].streak = S.lossStreak;
+  }
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      prog:S.prog, sound:S.sound, last:S.difficulty,
+      name:S.playerName, playerId:S.playerId
+    }));
+  }catch(e){}
+}
+
+/* ============================================================
+   5. Audio
+   ============================================================ */
+let actx = null;
+function ac(){
+  if(!actx){
+    try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+  }
+  if(actx && actx.state==="suspended") actx.resume();
+  return actx;
+}
+function tone(freq, dur, type="square", vol=0.08, when=0, slide=0){
+  if(!S.sound) return;
+  const ctx = ac(); if(!ctx) return;
+  const t0 = ctx.currentTime + when;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,freq+slide), t0+dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(t0); o.stop(t0+dur+0.02);
+}
+const SFX = {
+  flip(){ tone(520, .07, "square", .05); },
+  one(){ tone(420, .1, "square", .06); },
+  mult(v){
+    const steps = {2:[660,880], 3:[660,880,1180], 4:[660,880,1180,1480], 5:[660,880,1180,1480,1780]}[v] || [660,880];
+    steps.forEach((f,i)=>tone(f, i===steps.length-1?.16:.08, "square", .07, i*.06));
+  },
+  memo(){ tone(300, .05, "triangle", .07); },
+  cursor(){ tone(700, .03, "square", .03); },
+  boom(){ tone(220, .5, "sawtooth", .12, 0, -180); tone(90, .6, "square", .12, .04, -60); },
+  win(){ [523,659,784,1046,1318].forEach((f,i)=>tone(f,.14,"square",.08,i*.09)); tone(1568,.4,"square",.07,.5); },
+  denied(){ tone(180,.15,"square",.07); },
+  menu(){ tone(880,.06,"square",.05); tone(1100,.1,"square",.05,.06); }
+};
+
+/* ============================================================
+   6. Game state
+   ============================================================ */
+const saved = loadSave();
+const S = {
+  screen: "menu",       // menu | game
+  difficulty: null,     // easy | medium | hard
+  prog: saved.prog,
+  sound: saved.sound,
+  playerName: saved.name,
+  playerId: saved.playerId,
+  size: 5,              // current board is size x size
+  level: 1,
+  totalCoins: 0,
+  board: [],
+  clues: null,
+  revealed: [],
+  memos: [],
+  roundScore: 1,
+  flips: 0,
+  lossStreak: 0,        // consecutive losses at the current level (milestone rule)
+  phase: "playing",     // playing | busy | ended
+  memoMode: false,
+  activeMark: 0,
+  isTutorial: false,    // interactive How-To-Play demo (never touches saves)
+  tutStep: 0
+};
+
+/* ============================================================
+   7. DOM construction (rebuilt per round; size can change)
+   ============================================================ */
+const $ = sel => document.querySelector(sel);
+const boardEl = $("#board"), fxEl = $("#fx"), msgEl = $("#msg");
+let tiles = [], rowClueEls = [], colClueEls = [];
+
+function fitBoard(){
+  const n = S.size;
+  const availW = Math.min(document.documentElement.clientWidth * 0.94, 660);
+  const availH = Math.max(300, window.innerHeight * 0.62);
+  const gap = 5;
+  const cell = Math.max(26, Math.min(78,
+    Math.floor(availW/(n+1) - gap),
+    Math.floor(availH/(n+1) - gap)));
+  boardEl.style.setProperty("--cell", cell+"px");
+  boardEl.style.gridTemplateColumns = `repeat(${n}, var(--cell)) calc(var(--cell) * 0.92)`;
+  boardEl.style.gridTemplateRows = `repeat(${n}, var(--cell)) calc(var(--cell) * 0.92)`;
+}
+window.addEventListener("resize", ()=>{ if(S.screen==="game") fitBoard(); });
+
+function memoMarkupFor(maxVal){
+  let html = `<span class="m mv">${SVG.orbMini()}</span><span class="m m1">1</span><span class="m m2">2</span><span class="m m3">3</span>`;
+  if(maxVal>=4) html += `<span class="m m4">4</span>`;
+  if(maxVal>=5) html += `<span class="m m5">5</span>`;
+  return html;
+}
+function buildBoardDOM(){
+  const n = S.size;
+  const maxVal = DIFF[S.difficulty].maxVal;
+  boardEl.innerHTML = "";
+  tiles = []; rowClueEls = []; colClueEls = [];
+  fitBoard();
+  for(let r=0;r<n;r++){
+    for(let c=0;c<n;c++){
+      const i = r*n+c;
+      const b = document.createElement("button");
+      b.className = "tile";
+      b.dataset.i = i;
+      b.setAttribute("aria-label", `Tile row ${r+1} column ${c+1}`);
+      b.innerHTML = `
+        <div class="card">
+          <div class="face front">${SVG.glyph()}
+            <div class="memos">${memoMarkupFor(maxVal)}</div>
+          </div>
+          <div class="face back"></div>
+        </div>`;
+      b.addEventListener("click", () => onTileActivate(i));
+      b.addEventListener("contextmenu", e => { e.preventDefault(); if(!S.isTutorial) toggleMemoOnTile(i, 0); });
+      boardEl.appendChild(b);
+      tiles.push(b);
+    }
+    const rc = document.createElement("div");
+    rc.className = `clue rowclue k${r%5}`;
+    rc.innerHTML = `<div class="pts"></div><div class="sep"></div><div class="vb">${SVG.orbMini()}<span></span></div>`;
+    boardEl.appendChild(rc);
+    rowClueEls.push(rc);
+  }
+  for(let c=0;c<n;c++){
+    const cc = document.createElement("div");
+    cc.className = `clue colclue k${c%5}`;
+    cc.innerHTML = `<div class="pts"></div><div class="sep"></div><div class="vb">${SVG.orbMini()}<span></span></div>`;
+    boardEl.appendChild(cc);
+    colClueEls.push(cc);
+  }
+  const corner = document.createElement("div");
+  corner.className = "corner";
+  corner.innerHTML = SVG.orb();
+  boardEl.appendChild(corner);
+}
+function buildPalette(){
+  const maxVal = DIFF[S.difficulty].maxVal;
+  const wrap = $("#paletteMarks");
+  wrap.innerHTML = "";
+  const marks = [0,1,2,3].concat(maxVal>=4?[4]:[], maxVal>=5?[5]:[]);
+  for(const m of marks){
+    const b = document.createElement("button");
+    b.className = "mkbtn"; b.dataset.mark = m;
+    b.title = m===0 ? "Spark Orb (0)" : String(m);
+    b.innerHTML = m===0 ? SVG.orbMini() : String(m);
+    b.addEventListener("click", ()=>{ if(S.isTutorial) return; setActiveMark(m); SFX.memo(); });
+    wrap.appendChild(b);
+  }
+  setActiveMark(0);
+}
+
+/* ============================================================
+   8. Rendering / updates
+   ============================================================ */
+function pad2(x){ return String(x).padStart(2,"0"); }
+function renderClues(){
+  const n = S.size;
+  for(let r=0;r<n;r++){
+    rowClueEls[r].querySelector(".pts").textContent = pad2(S.clues.rows[r].points);
+    rowClueEls[r].querySelector(".vb span").textContent = S.clues.rows[r].voltorbs;
+  }
+  for(let c=0;c<n;c++){
+    colClueEls[c].querySelector(".pts").textContent = pad2(S.clues.cols[c].points);
+    colClueEls[c].querySelector(".vb span").textContent = S.clues.cols[c].voltorbs;
+  }
+}
+function renderStats(){
+  $("#levelVal").textContent = S.level;
+  $("#totalVal").textContent = S.totalCoins.toLocaleString();
+  $("#roundVal").textContent = S.roundScore.toLocaleString();
+  const mv = $("#modeVal");
+  mv.textContent = DIFF[S.difficulty].label;
+  mv.className = "val " + S.difficulty;
+}
+function renderHearts(remainingOverride = null, breakingIdx = -1){
+  const wrap = $("#heartsVal");
+  if(!wrap) return;
+  const remaining = remainingOverride != null ? remainingOverride : MAX_TRIES - S.lossStreak;
+  wrap.innerHTML = Array.from({length: MAX_TRIES}, (_,i)=>{
+    const filled = i < remaining;
+    const cls = "heart" + (filled ? "" : " empty") + (i === breakingIdx ? " breaking" : "");
+    return `<span class="${cls}">${SVG.heart()}</span>`;
+  }).join("");
+}
+function pulseScore(){
+  const el = $("#roundVal");
+  el.classList.remove("pulse");
+  void el.offsetWidth;
+  el.classList.add("pulse");
+}
+function renderTileBack(i){
+  const v = S.board[i];
+  const back = tiles[i].querySelector(".face.back");
+  back.className = "face back" + (v>=2 ? ` v${v}` : v===0 ? " orb" : "");
+  back.innerHTML = v===0 ? SVG.orb() : `<span>${v}</span>`;
+}
+function renderMemos(i){
+  const wrap = tiles[i].querySelector(".memos");
+  const set = S.memos[i];
+  const map = {0:".mv",1:".m1",2:".m2",3:".m3",4:".m4",5:".m5"};
+  for(const [mark, sel] of Object.entries(map)){
+    const el = wrap.querySelector(sel);
+    if(el) el.classList.toggle("on", set.has(Number(mark)));
+  }
+}
+function setMsg(text){
+  msgEl.textContent = text;
+  msgEl.classList.remove("flash");
+  void msgEl.offsetWidth;
+  msgEl.classList.add("flash");
+}
+function updateClueDoneStates(){
+  const n = S.size;
+  const a = analyzeVisible(S.clues, revealedValues(), n);
+  for(let r=0;r<n;r++){
+    const li = a.rows[r];
+    rowClueEls[r].classList.toggle("done", li.unknown.length===0 || li.unknown.length===li.remOrbs);
+  }
+  for(let c=0;c<n;c++){
+    const li = a.cols[c];
+    colClueEls[c].classList.toggle("done", li.unknown.length===0 || li.unknown.length===li.remOrbs);
+  }
+}
+
+/* ============================================================
+   9. Screens
+   ============================================================ */
+let menuMode = "new";   // which flow the difficulty screen serves: new | continue
+function hasProg(k){
+  const p = S.prog[k];
+  return p.total > 0 || p.level > 1 || (p.streak || 0) > 0;
+}
+function renderMenu(){
+  $("#menuSound").textContent = "Sound: " + (S.sound?"On":"Off");
+  $("#mnContinue").disabled = !["easy","medium","hard"].some(hasProg);
+  for(const k of ["easy","medium","hard"]){
+    const p = S.prog[k];
+    const card = document.querySelector(`.diffcard.${k}`);
+    const el = document.querySelector(`[data-prog="${k}"]`);
+    if(menuMode === "continue"){
+      card.classList.toggle("disabled", !hasProg(k));
+      el.innerHTML = hasProg(k)
+        ? `Resume: Level <b>${p.level}</b> · <b>${p.total.toLocaleString()}</b> coins`
+        : `No saved game yet`;
+    } else {
+      card.classList.remove("disabled");
+      el.innerHTML = hasProg(k)
+        ? `Fresh start — erases your save (Level <b>${p.level}</b> · <b>${p.total.toLocaleString()}</b> coins)`
+        : `Fresh start at Level 1`;
+    }
+  }
+}
+function buildMenuDecor(){
+  const wrap = $("#menuDecor");
+  wrap.innerHTML = "";
+  // scattered across the whole page (viewport %) — only the central
+  // column where the menu itself sits stays clear
+  // pieces marked mob:true hide on phones, where the menu column fills
+  // most of the width — phones keep only corner, edge and bottom pieces
+  const spots = [
+    // far left, top to bottom
+    {x:3,  y:8},  {x:10, y:26, mob:true}, {x:5, y:48, mob:true},
+    {x:9, y:68, orb:true}, {x:4, y:88},
+    // left-center
+    {x:20, y:13, mob:true}, {x:24, y:38, mob:true}, {x:17, y:59, mob:true}, {x:26, y:81, mob:true},
+    // center (below the menu)
+    {x:38, y:66, mob:true}, {x:48, y:79, orb:true, mob:true}, {x:58, y:65, mob:true},
+    {x:42, y:91}, {x:61, y:89},
+    // right-center
+    {x:73, y:9, mob:true}, {x:78, y:33, orb:true, mob:true}, {x:71, y:57, mob:true}, {x:76, y:84},
+    // far right, top to bottom
+    {x:90, y:16, orb:true}, {x:93, y:42, mob:true}, {x:87, y:64}, {x:91, y:88, orb:true}
+  ];
+  const SIZE = 56; // same size as a normal board tile
+  spots.forEach((s)=>{
+    const d = document.createElement("div");
+    d.className = "decor " + (s.orb ? "decor-orb" : "decor-tile") + (s.mob ? " mob-hide" : "");
+    d.style.width = d.style.height = SIZE + "px";
+    d.style.left = (s.x + (Math.random()*8 - 4)) + "%";
+    d.style.top  = (s.y + (Math.random()*8 - 4)) + "%";
+    d.style.setProperty("--rot", (Math.random()*26 - 13).toFixed(1) + "deg");
+    d.style.setProperty("--dur", (5.5 + Math.random()*4).toFixed(1) + "s");
+    d.style.animationDelay = "-" + (Math.random()*6).toFixed(1) + "s";
+    d.innerHTML = s.orb ? SVG.orb() : SVG.glyph();
+    wrap.appendChild(d);
+  });
+}
+function showMenuHome(){
+  $("#menuDiff").hidden = true;
+  $("#menuHome").hidden = false;
+  renderMenu();
+}
+function showMenuDiff(mode){
+  menuMode = mode;
+  $("#diffHeading").textContent = mode === "new" ? "New Game — pick a difficulty" : "Continue — pick a difficulty";
+  $("#menuHome").hidden = true;
+  $("#menuDiff").hidden = false;
+  renderMenu();
+  SFX.cursor();
+}
+function goMenu(){
+  persist();
+  S.screen = "menu";
+  S.difficulty = null;
+  $("#app").hidden = true;
+  $("#menu").hidden = false;
+  $("#menuDecor").hidden = false;
+  buildMenuDecor();
+  showMenuHome();
+}
+function startGame(difficulty){
+  S.difficulty = difficulty;
+  S.totalCoins = S.prog[difficulty].total;
+  S.level = S.prog[difficulty].level;
+  S.lossStreak = S.prog[difficulty].streak || 0;
+  S.screen = "game";
+  $("#menu").hidden = true;
+  $("#menuDecor").hidden = true;
+  $("#app").hidden = false;
+  buildPalette();
+  setMemoMode(false);
+  newRound(S.level);
+  SFX.menu();
+}
+
+/* ============================================================
+   10. Round lifecycle
+   ============================================================ */
+function newRound(level = S.level, announce = true){
+  S.level = Math.min(MAX_LEVEL, Math.max(1, level));
+  const gen = generateBoard(S.difficulty, S.level);
+  S.size = gen.n;
+  S.board = gen.board;
+  S.clues = computeClues(S.board, S.size);
+  S.revealed = new Array(S.size*S.size).fill(false);
+  S.memos = Array.from({length:S.size*S.size}, ()=>new Set());
+  S.roundScore = 1;
+  S.flips = 0;
+  S.phase = "playing";
+  fxEl.innerHTML = "";
+  hideResult();
+  boardEl.classList.remove("shake","victory");
+  buildBoardDOM();
+  tiles.forEach((t,i)=>renderTileBack(i));
+  renderClues();
+  renderStats();
+  renderHearts();
+  updateClueDoneStates();
+  persist();
+  if(announce){
+    const m = multiplierCount();
+    setMsg(`${DIFF[S.difficulty].label} Lv.${S.level} (${S.size}×${S.size}) — find all ${m} multiplier tile${m===1?"":"s"}!`);
+  }
+}
+function multiplierCount(){ return S.board.filter(v=>v>=2).length; }
+function revealedValues(){ return S.board.map((v,i)=>S.revealed[i]? v : null); }
+function allMultipliersFound(){ return S.board.every((v,i)=> v<2 || S.revealed[i]); }
+
+function onTileActivate(i){
+  if(S.phase!=="playing") return;
+  if(S.isTutorial){
+    // only the action the current step asks for is allowed
+    const st = TUT_STEPS[S.tutStep];
+    const req = st && st.require;
+    if(req && typeof req === "object"){
+      if(req.click === i && !S.memoMode){
+        revealTile(i);
+        if(S.phase === "playing") tutAdvance();   // victory handles the final step itself
+        return;
+      }
+      if(req.memo === i && S.memoMode){
+        toggleMemoOnTile(i, S.activeMark);
+        tutAdvance();
+        return;
+      }
+    }
+    SFX.denied();
+    return;
+  }
+  if(S.memoMode){ toggleMemoOnTile(i, S.activeMark); return; }
+  revealTile(i);
+}
+function revealTile(i){
+  if(S.phase!=="playing" || S.revealed[i]) return;
+  const v = S.board[i];
+  S.revealed[i] = true;
+  S.memos[i].clear(); renderMemos(i);
+  tiles[i].classList.add("revealed");
+  SFX.flip();
+
+  if(v===0){ onOrbHit(i); return; }
+
+  S.flips++;
+  if(v===1){ setTimeout(()=>SFX.one(), 160); }
+  else{
+    S.roundScore *= v;
+    setTimeout(()=>{ SFX.mult(v); pulseScore(); renderStats(); spawnSparks(tiles[i], 6+v*3, ["#ffd44d","#ffab4d","#fff3c0"]); }, 200);
+  }
+  renderStats();
+  updateClueDoneStates();
+  if(allMultipliersFound()){ onVictory(); }
+}
+
+/* Milestone rule: milestones are every 5 levels (5, 10, 15, 20).
+   Each level grants MAX_TRIES attempts (shown as hearts).
+   Losing all of them bounces you back to your last milestone
+   (or level 1 if you haven't reached one). Winning refills the hearts. */
+const MAX_TRIES = 3;
+function levelAfterLoss(){
+  if(S.lossStreak < MAX_TRIES - 1) return S.level;  // hearts remain: retry this level
+  return checkpointFor(S.level);                    // last heart gone: back to last milestone
+}
+function onOrbHit(i){
+  S.phase = "busy";
+  renderStats();
+  tiles[i].classList.add("hitOrb");
+  setTimeout(()=>{
+    SFX.boom();
+    boardEl.classList.add("shake");
+    spawnSparks(tiles[i], 22, ["#ffd44d","#ff8c4d","#ff5858","#ffffff"]);
+    const boomIcon = document.createElement("div");
+    boomIcon.style.cssText = "position:absolute;width:70px;height:70px;pointer-events:none;z-index:6;animation:popIn .25s both;";
+    const rect = tiles[i].getBoundingClientRect(), wrap = fxEl.getBoundingClientRect();
+    boomIcon.style.left = (rect.left-wrap.left+rect.width/2-35)+"px";
+    boomIcon.style.top = (rect.top-wrap.top+rect.height/2-35)+"px";
+    boomIcon.innerHTML = SVG.boom();
+    fxEl.appendChild(boomIcon);
+    setTimeout(()=>boomIcon.remove(), 900);
+  }, 420);
+  setTimeout(()=>{ revealAllBoard(); }, 1050);
+  setTimeout(()=>{
+    const lost = S.roundScore;
+    const newLevel = levelAfterLoss();
+    const heartsLeftBefore = MAX_TRIES - S.lossStreak;
+    const dropped = newLevel < S.level;
+    const staying = newLevel === S.level && heartsLeftBefore > 1;
+    // update streak: retrying the same level keeps counting; moving levels (or
+    // burning the last heart at a milestone) refills the hearts
+    S.lossStreak = staying ? S.lossStreak + 1 : 0;
+    S.roundScore = 0;
+    S.phase = "ended";
+    renderStats();
+    persist();
+    let levelMsg, btnLabel;
+    if(staying){
+      const heartsLeft = MAX_TRIES - S.lossStreak;
+      renderHearts(heartsLeft, MAX_TRIES - S.lossStreak); // animate the heart that just broke
+      levelMsg = heartsLeft === 1
+        ? `<b style="color:#ff8c8c">Last heart!</b> Lose again and you fall back to Level ${checkpointFor(S.level)}. Study the revealed board!`
+        : `You have <b>${heartsLeft} tries</b> left at Level ${newLevel}. Study the revealed board!`;
+      btnLabel = `Retry Level ${newLevel}`;
+    } else if(dropped){
+      renderHearts(0, 0);
+      levelMsg = `All hearts lost! Bounced back to your last milestone: <b>Level ${newLevel}</b>. Study the revealed board!`;
+      btnLabel = `Restart at Level ${newLevel}`;
+    } else {
+      renderHearts(0, 0);
+      levelMsg = `All hearts lost — but Level ${newLevel} is a milestone, so your hearts refill and you can keep trying. Study the revealed board!`;
+      btnLabel = `Retry Level ${newLevel}`;
+    }
+    showResult("loss", "KABOOM!", `
+      You flipped a Spark Orb! Coins lost this round: <b style="color:#ff8c8c">${lost.toLocaleString()}</b><br>${levelMsg}`,
+      [{label:btnLabel, cls:"blue", fn:()=>newRound(newLevel)}]);
+  }, 2300);
+}
+function revealAllBoard(){
+  // flip every remaining tile face-up at full brightness (no dimming)
+  let d = 0;
+  const step = Math.max(8, Math.floor(700/(S.size*S.size)));
+  for(let i=0;i<S.size*S.size;i++){
+    if(S.revealed[i]) continue;
+    const tile = tiles[i];
+    setTimeout(()=>{ tile.classList.add("revealed"); }, d);
+    d += step;
+  }
+}
+
+/* Inline result panel below the board — never covers the tiles */
+const resultEl = $("#result");
+function showResult(kind, title, bodyHTML, actions){
+  resultEl.className = kind;
+  resultEl.querySelector(".rtitle").textContent = title;
+  resultEl.querySelector(".rbody").innerHTML = bodyHTML;
+  const act = resultEl.querySelector(".ractions");
+  act.innerHTML = "";
+  for(const a of actions){
+    const b = document.createElement("button");
+    b.className = "btn " + (a.cls||"");
+    b.textContent = a.label;
+    b.addEventListener("click", a.fn);
+    act.appendChild(b);
+  }
+  msgEl.hidden = true;
+  resultEl.hidden = false;
+}
+function hideResult(){
+  resultEl.hidden = true;
+  msgEl.hidden = false;
+}
+function onVictory(){
+  if(S.isTutorial){ tutorialVictory(); return; }
+  S.phase = "busy";
+  renderStats();
+  const won = S.roundScore;
+  setTimeout(()=>{
+    SFX.win();
+    boardEl.classList.add("victory");
+    tiles.forEach((t,i)=>{ if(S.board[i]>=2) t.classList.add("winGlow"); });
+    for(let k=0;k<3;k++){
+      setTimeout(()=>spawnSparks(boardEl, 26, ["#ffd44d","#8be08b","#9ed4ff","#ffb3e2","#fff"]), k*260);
+    }
+  }, 350);
+  setTimeout(()=>{
+    S.totalCoins += won;
+    const next = Math.min(MAX_LEVEL, S.level+1);
+    const advanced = next > S.level;
+    S.lossStreak = 0;
+    S.phase = "ended";
+    renderStats();
+    persist();
+    LB.submit(S.difficulty);
+    revealAllBoard();
+    const milestoneNote = (advanced && next % MILESTONE_EVERY === 0)
+      ? `<br><span style="color:#8be08b">Level ${next} is a MILESTONE — a checkpoint you can never fall below!</span>` : "";
+    showResult("win", "LEVEL CLEARED!", `
+      <div class="rbig">+${won.toLocaleString()} coins</div>
+      ${advanced
+        ? `Amazing! Advancing to <b>Level ${next}</b>!`
+        : `You conquered the final level — <b>Level ${MAX_LEVEL}</b> continues!`}${milestoneNote}`,
+      [{label: advanced ? `Next Level (${next})` : "Play Again", cls:"green", fn:()=>newRound(next)}]);
+  }, 1900);
+}
+
+/* ============================================================
+   11. Memo system
+   ============================================================ */
+function setMemoMode(on){
+  S.memoMode = on;
+  $("#btnMemo").classList.toggle("memo-on", on);
+  $("#btnMemo").textContent = on ? "Memo: On" : "Memo";
+  $("#memoPalette").hidden = !on;
+  if(on) setMsg("Memo Mode — pick a mark, then tap tiles to note possibilities.");
+}
+function setActiveMark(m){
+  S.activeMark = m;
+  document.querySelectorAll(".mkbtn").forEach(b=>b.classList.toggle("active", Number(b.dataset.mark)===m));
+}
+function toggleMemoOnTile(i, mark){
+  if(S.phase!=="playing" || S.revealed[i]) return;
+  if(mark>DIFF[S.difficulty].maxVal && mark!==0) return;
+  const set = S.memos[i];
+  set.has(mark) ? set.delete(mark) : set.add(mark);
+  renderMemos(i);
+  SFX.memo();
+}
+
+/* ============================================================
+   12. Hint system (player-visible info only)
+   ============================================================ */
+function giveHint(){
+  if(S.isTutorial){ SFX.denied(); return; }
+  if(S.phase!=="playing"){ SFX.denied(); return; }
+  const n = S.size;
+  const a = analyzeVisible(S.clues, revealedValues(), n);
+  const juicy = [...a.safe].filter(i=>!a.cannotBeMultiplier.has(i));
+  if(juicy.length){
+    const i = juicy[Math.floor(Math.random()*juicy.length)];
+    flashTile(i, "hintFlash");
+    const r = Math.floor(i/n)+1, c = i%n+1;
+    const why = a.rows[r-1].safe ? `row ${r} has no Spark Orbs left` : `column ${c} has no Spark Orbs left`;
+    setMsg(`Hint: (row ${r}, col ${c}) is guaranteed safe — ${why}.`);
+    SFX.cursor();
+    return;
+  }
+  if(a.orb.size){
+    const i = [...a.orb][0];
+    flashTile(i, "dangerFlash");
+    const r = Math.floor(i/n)+1, c = i%n+1;
+    setMsg(`Hint: (row ${r}, col ${c}) MUST be a Spark Orb — steer clear!`);
+    SFX.denied();
+    return;
+  }
+  if(a.safe.size){
+    const i = [...a.safe][0];
+    flashTile(i, "hintFlash");
+    const r = Math.floor(i/n)+1, c = i%n+1;
+    setMsg(`Hint: (row ${r}, col ${c}) is safe, but its line holds only 1s. The remaining multipliers can't be proven safe — tread carefully.`);
+    return;
+  }
+  const deadRows = a.rows.map((l,idx)=>l.dead?idx+1:null).filter(x=>x!=null);
+  const deadCols = a.cols.map((l,idx)=>l.dead?idx+1:null).filter(x=>x!=null);
+  if(deadRows.length || deadCols.length){
+    const bits = [];
+    if(deadRows.length) bits.push(`row${deadRows.length>1?"s":""} ${deadRows.join(", ")}`);
+    if(deadCols.length) bits.push(`column${deadCols.length>1?"s":""} ${deadCols.join(", ")}`);
+    setMsg(`Hint: ${bits.join(" and ")} hold no multipliers — every flip there is a 1 or a Spark Orb.`);
+    return;
+  }
+  setMsg("Hint: no tile is provably safe right now. Compare the clues and trust your best judgment!");
+}
+function flashTile(i, cls){
+  tiles[i].classList.remove(cls);
+  void tiles[i].offsetWidth;
+  tiles[i].classList.add(cls);
+  setTimeout(()=>tiles[i].classList.remove(cls), 2000);
+}
+
+/* ============================================================
+   13. Particles
+   ============================================================ */
+function spawnSparks(anchorEl, count, colors){
+  const rect = anchorEl.getBoundingClientRect();
+  const wrap = fxEl.getBoundingClientRect();
+  const cx = rect.left - wrap.left + rect.width/2;
+  const cy = rect.top - wrap.top + rect.height/2;
+  for(let k=0;k<count;k++){
+    const s = document.createElement("div");
+    s.className = "spark";
+    const ang = Math.random()*Math.PI*2;
+    const dist = 40 + Math.random()*110;
+    s.style.left = cx+"px"; s.style.top = cy+"px";
+    s.style.setProperty("--dx", Math.cos(ang)*dist+"px");
+    s.style.setProperty("--dy", Math.sin(ang)*dist - 30 +"px");
+    s.style.background = colors[k%colors.length];
+    s.style.animationDelay = (Math.random()*0.12)+"s";
+    fxEl.appendChild(s);
+    setTimeout(()=>s.remove(), 1100);
+  }
+}
+
+/* ============================================================
+   14. Modal
+   ============================================================ */
+const modalEl = $("#modal");
+function showModal(title, bodyHTML, actions){
+  $("#modalTitle").textContent = title;
+  $("#modalBody").innerHTML = bodyHTML;
+  const act = $("#modalActions");
+  act.innerHTML = "";
+  for(const a of actions){
+    const b = document.createElement("button");
+    b.className = "btn " + (a.cls||"");
+    b.textContent = a.label;
+    b.addEventListener("click", a.fn);
+    act.appendChild(b);
+  }
+  modalEl.hidden = false;
+  setTimeout(()=>act.querySelector("button")?.focus(), 60);
+}
+function closeModal(){ modalEl.hidden = true; }
+
+/* ============================================================
+   14c. Interactive tutorial (How To Play)
+   A scripted demo board with step-by-step guided play.
+   Never touches real saves or the leaderboard.
+   ============================================================ */
+const TUT_BOARD = [
+  1, 2, 1, 1, 1,
+  1, 1, 1, 1, 1,
+  0, 1, 3, 1, 1,
+  1, 0, 1, 1, 2,
+  1, 1, 1, 0, 1
+];
+const TUT_STEPS = [
+  {text:`Welcome to <b>SPARK FLIP</b>! The goal on every board: flip over <b>every multiplier tile</b> (×2 and ×3 — and on Hard difficulty, up to ×5) without hitting a single Spark Orb. Let's play a real board together, step by step.`,
+   require:"next"},
+  {text:`Every face-down tile hides a <b>1</b>, a <b>2</b>, a <b>3</b> — or a <b>Spark Orb</b>. (On Hard difficulty, ×4 and ×5 tiles join the mix.) Flipping any multiplier multiplies your round coins. Flipping a Spark Orb ends the round and takes those coins. Flipping a 1 is harmless — and you <b>never need the 1s to win</b>.`,
+   require:"next"},
+  {text:`The colored panels are your clues. Each one describes its row (right side) or column (bottom): the <b>top number is the SUM</b> of every tile value in that line, and the <b>bottom number is how many SPARK ORBS</b> hide there.`,
+   require:"next", hlRows:[0,1,2,3,4], hlCols:[0,1,2,3,4]},
+  {text:`Look at row 1's clue: <b>06 points · 0 Spark Orbs</b>. Zero Spark Orbs means every tile in that row is 100% safe to flip. <b>Click the glowing tile</b> to flip your first one.`,
+   require:{click:0}, hlRows:[0]},
+  {text:`A 1 — totally safe, but notice THIS ROUND didn't move: 1s never earn coins. The row is still safe, and 6 points across five tiles means something bigger is hiding. <b>Click the glowing tile.</b>`,
+   require:{click:1}, hlRows:[0]},
+  {text:`A <b>×2</b>! Your round coins just doubled from 1 to 2. Finding every multiplier like this one is how you clear a level.`,
+   require:"next"},
+  {text:`Now row 2: <b>05 points · 0 Spark Orbs</b> across five tiles. Five points in five tiles means every single one is a 1. Safe — but worthless. Skip "dead" lines like this; you don't need them to win.`,
+   require:"next", hlRows:[1]},
+  {text:`Column 3 reads <b>07 points · 0 Spark Orbs</b>. No Spark Orbs means safe — and 7 points over five tiles guarantees a multiplier is hiding in it. <b>Click the glowing tile.</b>`,
+   require:{click:12}, hlCols:[2]},
+  {text:`A <b>×3</b>! Your coins tripled: 2 × 3 = 6. This is the heart of the game — find lines that are both <b>safe</b> and <b>rich</b>, and flip there first.`,
+   require:"next"},
+  {text:`Now the danger. Row 5 hides <b>1 Spark Orb</b>, and column 4 hides <b>1 Spark Orb</b> — the tile where they cross is a prime suspect. I've switched on <b>Memo Mode</b> with the Spark Orb mark selected: <b>click the glowing tile</b> to pencil in a warning.`,
+   require:{memo:23}, hlRows:[4], hlCols:[3],
+   enter(){ setMemoMode(true); setActiveMark(0); }},
+  {text:`Marked! Memos are notes only — they never change what's underneath. In a real game, use them to track suspects (Spark Orb, 1, 2, 3 — plus 4 and 5 on Hard) before risking a flip. Memo Mode is off again.`,
+   require:"next",
+   enter(){ setMemoMode(false); }},
+  {text:`One multiplier remains. Column 5: <b>06 points · 0 Spark Orbs</b> — fully safe, and 6 points over five tiles promises a multiplier. <b>Click the glowing tile</b> to clear the board!`,
+   require:{click:19}, hlCols:[4]}
+];
+const TUT_FINAL = `<b>LEVEL CLEARED!</b> You found all three multipliers — and never had to touch a risky tile. That's the whole game! A few last things: you get <b>3 hearts</b> per level, every 5th level is a <b>milestone checkpoint</b> you can never fall below, and clearing a board banks its coins and moves you up a level. Good luck out there!`;
+
+function setToolbarTutorial(on){
+  ["#btnNew","#btnHint","#btnMemo"].forEach(id=>{ $(id).disabled = on; });
+}
+function clearTutHl(){
+  document.querySelectorAll(".tutHl").forEach(el=>el.classList.remove("tutHl"));
+  document.querySelectorAll(".tutTarget").forEach(el=>el.classList.remove("tutTarget"));
+}
+function startTutorial(){
+  closeModal();
+  S.isTutorial = true;
+  S.tutStep = 0;
+  S.difficulty = "medium";
+  S.totalCoins = 0;
+  S.level = 1;
+  S.lossStreak = 0;
+  S.screen = "game";
+  $("#menu").hidden = true;
+  $("#menuDecor").hidden = true;
+  $("#app").hidden = false;
+  buildPalette();
+  setMemoMode(false);
+  S.size = 5;
+  S.board = TUT_BOARD.slice();
+  S.clues = computeClues(S.board, 5);
+  S.revealed = new Array(25).fill(false);
+  S.memos = Array.from({length:25}, ()=>new Set());
+  S.roundScore = 1; S.flips = 0; S.phase = "playing";
+  fxEl.innerHTML = "";
+  hideResult();
+  boardEl.classList.remove("shake","victory");
+  buildBoardDOM();
+  tiles.forEach((t,i)=>renderTileBack(i));
+  renderClues(); renderStats(); renderHearts(); updateClueDoneStates();
+  setToolbarTutorial(true);
+  msgEl.hidden = true;
+  $("#tutor").hidden = false;
+  renderTutStep();
+  SFX.menu();
+}
+function renderTutStep(){
+  const st = TUT_STEPS[S.tutStep];
+  if(!st) return;
+  clearTutHl();
+  if(st.enter) st.enter();
+  const tut = $("#tutor");
+  tut.querySelector(".tstep").textContent = `TUTORIAL — STEP ${S.tutStep+1} OF ${TUT_STEPS.length+1}`;
+  tut.querySelector(".tbody").innerHTML = st.text;
+  const act = tut.querySelector(".tactions");
+  act.innerHTML = "";
+  if(st.require === "next"){
+    const b = document.createElement("button");
+    b.className = "btn green"; b.textContent = "Next";
+    b.addEventListener("click", ()=>{ SFX.cursor(); tutAdvance(); });
+    act.appendChild(b);
+  }
+  const ex = document.createElement("button");
+  ex.className = "btn gray"; ex.textContent = "Exit Tutorial";
+  ex.addEventListener("click", exitTutorial);
+  act.appendChild(ex);
+  (st.hlRows||[]).forEach(r=>rowClueEls[r].classList.add("tutHl"));
+  (st.hlCols||[]).forEach(c=>colClueEls[c].classList.add("tutHl"));
+  if(st.require && st.require.click != null) tiles[st.require.click].classList.add("tutTarget");
+  if(st.require && st.require.memo != null) tiles[st.require.memo].classList.add("tutTarget");
+}
+function tutAdvance(){
+  S.tutStep++;
+  renderTutStep();
+}
+function tutorialVictory(){
+  S.phase = "busy";
+  renderStats();
+  clearTutHl();
+  setTimeout(()=>{
+    SFX.win();
+    boardEl.classList.add("victory");
+    tiles.forEach((t,i)=>{ if(S.board[i]>=2) t.classList.add("winGlow"); });
+    for(let k=0;k<3;k++){
+      setTimeout(()=>spawnSparks(boardEl, 26, ["#ffd44d","#8be08b","#9ed4ff","#ffb3e2","#fff"]), k*260);
+    }
+  }, 350);
+  setTimeout(()=>{
+    S.phase = "ended";
+    revealAllBoard();
+    const tut = $("#tutor");
+    tut.querySelector(".tstep").textContent = "TUTORIAL — COMPLETE!";
+    tut.querySelector(".tbody").innerHTML = TUT_FINAL;
+    const act = tut.querySelector(".tactions");
+    act.innerHTML = "";
+    const b = document.createElement("button");
+    b.className = "btn green"; b.textContent = "Finish";
+    b.addEventListener("click", exitTutorial);
+    act.appendChild(b);
+  }, 1900);
+}
+function exitTutorial(){
+  S.isTutorial = false;
+  S.tutStep = 0;
+  S.difficulty = null;
+  setMemoMode(false);
+  setToolbarTutorial(false);
+  clearTutHl();
+  $("#tutor").hidden = true;
+  msgEl.hidden = false;
+  goMenu();
+}
+
+/* ============================================================
+   14b. Leaderboard (Firebase Realtime Database over REST,
+        with a local-only fallback when no URL is configured)
+   ============================================================ */
+const LB = {
+  get url(){
+    const u = (LEADERBOARD_CONFIG.databaseURL || "").trim().replace(/\/+$/,"");
+    return /^https:\/\//.test(u) ? u : "";
+  },
+  get online(){ return !!this.url; },
+  activeTab: "medium",
+
+  async submit(diff){
+    if(S.isTutorial) return false;   // demo results never post
+    if(!this.online || !S.playerName) return false;
+    const p = S.prog[diff];
+    try{
+      const res = await fetch(`${this.url}/leaderboard/${diff}/${encodeURIComponent(S.playerId)}.json`, {
+        method: "PUT",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({name:S.playerName, coins:p.total, level:p.level, ts:Date.now()})
+      });
+      return res.ok;
+    }catch(e){ return false; }
+  },
+  async submitAll(){
+    for(const d of ["easy","medium","hard"]){
+      if(S.prog[d].total > 0 || S.prog[d].level > 1) await this.submit(d);
+    }
+  },
+  async fetchBoard(diff){
+    if(!this.online){
+      // local-only mode: just this device's save
+      const p = S.prog[diff];
+      if(p.total<=0 && p.level<=1) return [];
+      return [{id:S.playerId, name:S.playerName || "You", coins:p.total, level:p.level}];
+    }
+    const res = await fetch(`${this.url}/leaderboard/${diff}.json?orderBy=%22coins%22&limitToLast=50`);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const data = await res.json() || {};
+    return Object.entries(data)
+      .map(([id,e])=>({
+        id,
+        name: String(e && e.name || "???").slice(0,14),
+        coins: Number(e && e.coins) || 0,
+        level: Math.min(MAX_LEVEL, Math.max(1, Number(e && e.level) || 1))
+      }))
+      .sort((a,b)=>b.coins-a.coins)
+      .slice(0,10);
+  },
+  render(entries){
+    const list = document.querySelector(".lb-list");
+    if(!list) return;
+    if(!entries.length){
+      list.innerHTML = `<div class="lb-empty">No scores yet — be the first on the board!</div>`;
+      return;
+    }
+    list.innerHTML = entries.map((e,i)=>`
+      <div class="lb-row${e.id===S.playerId?" me":""}">
+        <span class="lb-rank">${i+1}</span>
+        <span class="lb-name">${escapeHTML(e.name)}${e.id===S.playerId?" (you)":""}</span>
+        <span class="lb-coins">${e.coins.toLocaleString()}</span>
+        <span class="lb-lv">Lv.${e.level}</span>
+      </div>`).join("");
+  },
+  async open(){
+    // view-only: names are set when a player picks a difficulty
+    const tabs = ["easy","medium","hard"].map(d=>
+      `<button class="lb-tab${d===this.activeTab?" active":""}" data-lbtab="${d}">${d}</button>`).join("");
+    showModal("LEADERBOARD", `
+      <div class="lb-tabs">${tabs}</div>
+      <div class="lb-list"><div class="lb-empty">Loading…</div></div>
+      <div class="lb-note">${this.online
+        ? "Total coins per difficulty — shared with everyone who plays this site."
+        : "Local mode: showing this device only. The site owner can enable a shared online leaderboard (see the setup notes inside the game file)."}</div>`,
+      [{label:"Close", cls:"blue", fn:closeModal}]);
+    document.querySelectorAll(".lb-tab").forEach(t=>{
+      t.addEventListener("click", ()=>{
+        this.activeTab = t.dataset.lbtab;
+        document.querySelectorAll(".lb-tab").forEach(x=>x.classList.toggle("active", x===t));
+        this.load();
+        SFX.cursor();
+      });
+    });
+    this.load();
+  },
+  async load(){
+    const list = document.querySelector(".lb-list");
+    if(list) list.innerHTML = `<div class="lb-empty">Loading…</div>`;
+    try{
+      const entries = await this.fetchBoard(this.activeTab);
+      this.render(entries);
+    }catch(e){
+      if(list) list.innerHTML = `<div class="lb-empty">Couldn't reach the leaderboard. Check your connection and try again.</div>`;
+    }
+  }
+};
+function escapeHTML(s){
+  return String(s).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
+
+/* ============================================================
+   15. Input wiring
+   ============================================================ */
+function promptNameAndStart(diff, fresh){
+  showModal("WHO'S PLAYING?", `
+    <p style="text-align:center">Enter a name for the <b style="color:var(--gold)">${DIFF[diff].label}</b> leaderboard:</p>
+    <div class="lb-namebar" style="margin:10px 0 6px">
+      <input id="nameEntry" maxlength="14" placeholder="Your name" value="${escapeHTML(S.playerName)}" autocomplete="off">
+    </div>
+    <p style="text-align:center;color:var(--muted);font-size:10.5px">Your wins post to the leaderboard under this name.</p>`,
+    [
+      {label:"Start Game", cls:"green", fn:confirmStart},
+      {label:"Back", cls:"gray", fn:closeModal}
+    ]);
+  const inp = document.querySelector("#nameEntry");
+  setTimeout(()=>{ inp.focus(); inp.select(); }, 90);
+  inp.addEventListener("keydown", e=>{
+    e.stopPropagation();
+    if(e.key==="Enter"){ e.preventDefault(); confirmStart(); }
+  });
+  inp.addEventListener("input", ()=>inp.classList.remove("invalid"));
+  function confirmStart(){
+    const v = inp.value.trim().slice(0,14);
+    if(!v){ inp.classList.add("invalid"); inp.placeholder = "Name required!"; inp.focus(); SFX.denied(); return; }
+    S.playerName = v;
+    if(fresh) S.prog[diff] = {total:0, level:1, streak:0};
+    persist();
+    closeModal();
+    startGame(diff);
+    LB.submitAll();
+  }
+}
+document.querySelectorAll(".diffcard").forEach(card=>{
+  card.addEventListener("click", ()=>{
+    const diff = card.dataset.diff;
+    if(menuMode === "continue"){
+      if(!hasProg(diff)){ SFX.denied(); return; }
+      promptNameAndStart(diff, false);
+      return;
+    }
+    // New Game: warn before erasing an existing save
+    if(hasProg(diff)){
+      const p = S.prog[diff];
+      showModal("ERASE SAVED GAME?", `
+        <p style="text-align:center">${DIFF[diff].label} has a saved game:<br>
+        <b style="color:var(--gold)">Level ${p.level} · ${p.total.toLocaleString()} coins</b></p>
+        <p style="text-align:center">Starting a New Game erases it and begins at Level 1 with 0 coins.</p>`,
+        [
+          {label:"Erase & start fresh", cls:"gray", fn:()=>{ closeModal(); promptNameAndStart(diff, true); }},
+          {label:"Cancel", cls:"blue", fn:closeModal}
+        ]);
+    } else {
+      promptNameAndStart(diff, true);
+    }
+  });
+});
+$("#mnNew").addEventListener("click", ()=>showMenuDiff("new"));
+$("#mnContinue").addEventListener("click", ()=>showMenuDiff("continue"));
+$("#diffBack").addEventListener("click", ()=>{ showMenuHome(); SFX.cursor(); });
+$("#mnLb").addEventListener("click", ()=>LB.open());
+$("#mnHelp").addEventListener("click", startTutorial);
+$("#menuSound").addEventListener("click", ()=>{
+  S.sound = !S.sound; persist(); renderMenu();
+  $("#btnSound").textContent = "Sound: " + (S.sound?"On":"Off");
+  if(S.sound) SFX.cursor();
+});
+$("#btnMenu").addEventListener("click", ()=>{
+  if(S.isTutorial){ exitTutorial(); return; }
+  if(S.phase==="busy") return;
+  if(S.phase==="playing" && S.flips>0){
+    showModal("BACK TO MENU?", `
+      <p style="text-align:center">Your current round winnings (<b style="color:#8be08b">${S.roundScore.toLocaleString()}</b>) will be forfeited.</p>`,
+      [
+        {label:"Go to menu", cls:"blue", fn:()=>{ closeModal(); goMenu(); }},
+        {label:"Keep playing", cls:"green", fn:closeModal}
+      ]);
+  } else goMenu();
+});
+$("#btnNew").addEventListener("click", ()=>{
+  if(S.phase==="busy") return;
+  if(S.phase==="playing" && S.flips>0){
+    showModal("START A NEW GAME?", `
+      <p style="text-align:center">Your current round winnings (<b style="color:#8be08b">${S.roundScore.toLocaleString()}</b>) will be forfeited.</p>`,
+      [
+        {label:"New game", cls:"blue", fn:()=>{ closeModal(); newRound(S.level); }},
+        {label:"Keep playing", cls:"green", fn:closeModal}
+      ]);
+  } else newRound(S.level);
+});
+$("#btnMemo").addEventListener("click", ()=>setMemoMode(!S.memoMode));
+$("#btnHint").addEventListener("click", giveHint);
+// How To Play lives only on the main menu (#mnHelp)
+$("#btnSound").addEventListener("click", ()=>{
+  S.sound = !S.sound;
+  $("#btnSound").textContent = "Sound: " + (S.sound?"On":"Off");
+  persist();
+  if(S.sound) SFX.cursor();
+});
+
+// keep keyboard focus off toolbar buttons so Enter/Space always act on the board
+document.addEventListener("click", e=>{
+  const b = e.target.closest("button");
+  if(b && !b.classList.contains("tile") && !b.closest("#modal")) b.blur();
+});
+
+// The game is played entirely with mouse clicks / touch taps.
+// The only keyboard input is typing a player name in its text field.
+
+/* ============================================================
+   16. Boot + test hooks
+   ============================================================ */
+$("#btnSound").textContent = "Sound: " + (S.sound?"On":"Off");
+buildMenuDecor();
+renderMenu();
+
+window.VF = {
+  DIFF, MAX_LEVEL, MILESTONE_EVERY, MAX_TRIES, checkpointFor,
+  LB, LEADERBOARD_CONFIG,
+  generateBoard, computeClues, analyzeVisible, buildBoardFromRecipe,
+  state: S,
+  revealTile, newRound, giveHint, startGame, goMenu,
+  startTutorial, exitTutorial, TUT_STEPS, TUT_BOARD,
+  setBoard(board){ // deterministic square board injection for tests
+    const n = Math.round(Math.sqrt(board.length));
+    S.size = n;
+    S.board = board.slice();
+    S.clues = computeClues(S.board, n);
+    S.revealed = new Array(n*n).fill(false);
+    S.memos = Array.from({length:n*n}, ()=>new Set());
+    S.roundScore = 1; S.flips = 0; S.phase = "playing";
+    fxEl.innerHTML = "";
+    boardEl.classList.remove("shake","victory");
+    buildBoardDOM();
+    tiles.forEach((t,i)=>renderTileBack(i));
+    renderClues(); renderStats(); updateClueDoneStates();
+  },
+  closeModal, isModalOpen: ()=>!modalEl.hidden
+};
+</script>
+</body>
+</html>
